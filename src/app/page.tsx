@@ -4,6 +4,7 @@ import { Button } from "@cloudflare/kumo/components/button";
 
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { PhigrosScoreCard } from "@/components/PhigrosScoreCard";
+import { RksSparkline } from "@/components/RksSparkline";
 import { RksPoster } from "@/components/RksPoster";
 import { formatDate, formatRks, formatScore } from "@/lib/format";
 import { getPublicHomeData } from "@/lib/data";
@@ -99,7 +100,10 @@ export default async function Home({ searchParams }: HomeProps) {
                         {result.className} · {result.subject}
                       </p>
                     </div>
-                    <div className="rks-number">{formatRks(result.student.rks)}</div>
+                    <div className="rks-summary">
+                      <div className="rks-number">{formatRks(result.student.rks)}</div>
+                      <RksSparkline points={result.student.rksHistory} />
+                    </div>
                   </div>
 
                   <div className="badge-row">

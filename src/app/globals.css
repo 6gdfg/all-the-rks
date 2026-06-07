@@ -451,12 +451,54 @@ textarea:focus {
   align-items: flex-start;
 }
 
+.rks-summary {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  min-width: 150px;
+}
+
 .rks-number {
   color: var(--ink);
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 900;
   line-height: 1;
   white-space: nowrap;
+}
+
+.rks-sparkline {
+  display: inline-grid;
+  grid-template-columns: 82px auto;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.rks-sparkline svg {
+  width: 82px;
+  height: 24px;
+  overflow: visible;
+}
+
+.rks-sparkline-grid {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.rks-sparkline-line {
+  fill: none;
+  stroke: #d9851f;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.rks-sparkline-dot {
+  fill: #d9851f;
 }
 
 .badge-row {
@@ -523,22 +565,25 @@ textarea:focus {
 
 .phigros-score-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
 }
 
 .phigros-score-card {
   --grade-color: #111111;
   --grade-soft: #efefef;
+  --cut-width: 112px;
+  --cut-content-offset: 108px;
+  --grade-column: 78px;
+  --score-gap: 16px;
   position: relative;
-  min-height: 116px;
+  min-height: 96px;
   overflow: hidden;
   isolation: isolate;
   border: 1px solid var(--line);
   border-right: 5px solid var(--grade-color);
   border-radius: 6px;
   background:
-    linear-gradient(108deg, #111111 0 17%, transparent 17%),
     linear-gradient(112deg, rgba(0, 0, 0, 0.04) 0 9%, transparent 9% 100%),
     linear-gradient(95deg, #ffffff, var(--grade-soft));
   color: var(--ink);
@@ -553,6 +598,16 @@ textarea:focus {
     linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent),
     repeating-linear-gradient(135deg, transparent 0 16px, rgba(0, 0, 0, 0.035) 16px 17px);
   opacity: 0.55;
+}
+
+.phigros-score-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: var(--cut-width);
+  background: #111111;
+  clip-path: polygon(0 0, 100% 0, 72% 100%, 0 100%);
 }
 
 .phigros-score-card.grade-phi {
@@ -580,40 +635,17 @@ textarea:focus {
 }
 
 .phigros-p1-card {
+  --cut-width: 164px;
+  --cut-content-offset: 148px;
+  --grade-column: 112px;
+  --score-gap: 18px;
   grid-column: 1 / -1;
-  background:
-    linear-gradient(112deg, rgba(0, 0, 0, 0.04) 0 9%, transparent 9% 100%),
-    linear-gradient(95deg, #ffffff, var(--grade-soft));
 }
 
-.phigros-p1-card::after {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 0;
-  width: 196px;
-  background: #111111;
-  clip-path: polygon(0 0, 100% 0, 72% 100%, 0 100%);
-}
-
-.phigros-p1-card .phigros-slot,
-.phigros-p1-card .phigros-card-content {
+.phigros-slot,
+.phigros-card-content {
   position: relative;
   z-index: 1;
-}
-
-.phigros-p1-card .phigros-card-content {
-  padding-left: 24px;
-}
-
-.phigros-p1-card .phigros-card-top,
-.phigros-p1-card .phigros-card-bottom {
-  padding-left: 174px;
-}
-
-.phigros-p1-card .phigros-card-mid {
-  grid-template-columns: 136px minmax(0, 1fr);
-  gap: 22px;
 }
 
 .phigros-slot {
@@ -623,20 +655,20 @@ textarea:focus {
   z-index: 2;
   display: inline-flex;
   min-width: 46px;
-  height: 24px;
+  height: 22px;
   align-items: center;
   padding: 0 16px 0 9px;
   clip-path: polygon(0 0, 100% 0, 82% 100%, 0 100%);
   background: #111111;
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 850;
 }
 
 .phigros-card-content {
   display: grid;
-  gap: 8px;
-  padding: 14px 16px 12px 66px;
+  gap: 6px;
+  padding: 12px 14px 10px;
 }
 
 .phigros-card-top {
@@ -645,16 +677,18 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-left: var(--cut-content-offset);
 }
 
 .phigros-card-top h3 {
   display: inline-flex;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: 7px;
   overflow: hidden;
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 0.92rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -669,20 +703,24 @@ textarea:focus {
 .phigros-card-top > span,
 .phigros-card-bottom {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 750;
+}
+
+.phigros-card-top > span {
+  flex: 0 0 auto;
 }
 
 .phigros-card-mid {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: var(--grade-column) minmax(0, 1fr);
+  gap: var(--score-gap);
   align-items: center;
 }
 
 .phigros-grade {
   color: var(--grade-color);
-  font-size: 2.65rem;
+  font-size: 2.2rem;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -709,7 +747,7 @@ textarea:focus {
 .phigros-score-block strong {
   overflow: hidden;
   color: var(--ink);
-  font-size: 1.58rem;
+  font-size: 1.34rem;
   font-weight: 850;
   line-height: 1;
   text-overflow: ellipsis;
@@ -718,12 +756,12 @@ textarea:focus {
 
 .phigros-score-block strong span {
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.82rem;
 }
 
 .phigros-score-block > span {
   color: var(--ink);
-  font-size: 0.96rem;
+  font-size: 0.86rem;
   font-weight: 800;
 }
 
@@ -738,13 +776,14 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding-left: var(--cut-content-offset);
 }
 
 .phigros-card-bottom span {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
-  padding: 3px 8px;
+  padding: 2px 7px;
 }
 
 .difficulty-pill {
@@ -794,22 +833,22 @@ textarea:focus {
 }
 
 .rks-poster {
-  width: 1080px;
-  min-height: 1440px;
+  width: 960px;
+  min-height: 1180px;
   overflow: hidden;
   background:
     linear-gradient(116deg, rgba(0, 0, 0, 0.05) 0 9%, transparent 9% 15%, rgba(0, 0, 0, 0.035) 15% 18%, transparent 18%),
     #ffffff;
   color: var(--ink);
-  padding: 44px;
+  padding: 34px;
 }
 
 .poster-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 22px;
   align-items: end;
-  padding-bottom: 28px;
+  padding-bottom: 22px;
 }
 
 .poster-eyebrow {
@@ -821,14 +860,14 @@ textarea:focus {
 
 .poster-header h2 {
   color: var(--ink);
-  font-size: 4rem;
+  font-size: 3.2rem;
   line-height: 1;
 }
 
 .poster-header p:not(.poster-eyebrow) {
   margin-top: 10px;
   color: var(--muted);
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 750;
 }
 
@@ -848,8 +887,17 @@ textarea:focus {
 
 .poster-rks-block strong {
   color: var(--ink);
-  font-size: 3.6rem;
+  font-size: 2.9rem;
   line-height: 1;
+}
+
+.poster-sparkline {
+  grid-template-columns: 96px auto;
+}
+
+.poster-sparkline svg {
+  width: 96px;
+  height: 28px;
 }
 
 .poster-stat-row {
@@ -866,7 +914,7 @@ textarea:focus {
   display: grid;
   gap: 5px;
   background: var(--surface-raised);
-  padding: 16px;
+  padding: 13px;
 }
 
 .poster-stat-row span {
@@ -877,17 +925,17 @@ textarea:focus {
 
 .poster-stat-row strong {
   color: var(--ink);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
 }
 
 .poster-divider {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
-  margin: 34px 0 20px;
+  margin: 26px 0 16px;
   color: var(--ink);
-  font-size: 1.35rem;
+  font-size: 1.12rem;
   font-weight: 900;
 }
 
@@ -904,15 +952,15 @@ textarea:focus {
 .poster-score-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 
 .poster-footer {
   display: flex;
   justify-content: space-between;
-  margin-top: 40px;
+  margin-top: 30px;
   border-top: 1px solid var(--line);
-  padding-top: 20px;
+  padding-top: 16px;
   color: var(--muted);
   font-weight: 850;
 }
@@ -1243,7 +1291,7 @@ textarea:focus {
 
 .rank-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 108px 120px;
+  grid-template-columns: 52px minmax(0, 1fr) 170px 96px;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--line);
@@ -1263,6 +1311,12 @@ textarea:focus {
   border-radius: 8px 8px 0 0;
 }
 
+.rank-rks-cell {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
 .rank-score {
   color: var(--ink);
   font-size: 1.1rem;
@@ -1277,7 +1331,7 @@ textarea:focus {
 }
 
 .rank-score-list {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .empty-state {
@@ -1321,8 +1375,9 @@ textarea:focus {
     grid-template-columns: 42px minmax(0, 1fr);
   }
 
-  .rank-score {
+  .rank-rks-cell {
     grid-column: 2;
+    justify-items: start;
   }
 }
 
@@ -1366,26 +1421,18 @@ textarea:focus {
     width: 100%;
   }
 
-  .phigros-card-content {
-    padding-left: 54px;
+  .phigros-score-card {
+    --cut-width: 104px;
+    --cut-content-offset: 100px;
+    --grade-column: 72px;
+    --score-gap: 14px;
   }
 
-  .phigros-p1-card::after {
-    width: 128px;
-  }
-
-  .phigros-p1-card .phigros-card-content {
-    padding-left: 18px;
-  }
-
-  .phigros-p1-card .phigros-card-top,
-  .phigros-p1-card .phigros-card-bottom {
-    padding-left: 116px;
-  }
-
-  .phigros-p1-card .phigros-card-mid {
-    grid-template-columns: 86px minmax(0, 1fr);
-    gap: 16px;
+  .phigros-p1-card {
+    --cut-width: 128px;
+    --cut-content-offset: 116px;
+    --grade-column: 86px;
+    --score-gap: 16px;
   }
 
   .phigros-score-block strong {

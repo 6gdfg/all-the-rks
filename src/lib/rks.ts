@@ -41,10 +41,18 @@ export type StudentRks = {
   notes: string;
   rks: number;
   rank: number;
+  rksHistory: RksHistoryPoint[];
   perfectResults: ExamResult[];
   bestResults: ExamResult[];
   firstBonus: ExamResult | null;
   results: ExamResult[];
+};
+
+export type RksHistoryPoint = {
+  examId: number;
+  examName: string;
+  examDate: string;
+  rks: number;
 };
 
 export type RksFormulaConfig = {
@@ -120,34 +128,21 @@ export function calculateClassRks(
     const results = [...(resultsByStudent.get(student.id) ?? [])].sort(
       sortResultByDateDesc
     );
+    const summary = summarizeResults(results, perfectCount, bestCount);
 
-    const bestResults = [...results]
-      .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
-      .slice(0, bestCount);
-
-    const perfectResults = results
-      .filter((result) => result.isClassFirst)
-      .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
-      .slice(0, perfectCount);
-
-    const firstBonus = perfectResults[0] ?? null;
-
-    const bestSum = bestResults.reduce((sum, result) => sum + result.examRks, 0);
-    const perfectSum = perfectResults.reduce(
-      (sum, result) => sum + result.examRks,
-      0
-    );
+    const rksHistory = buildRksHistory(results, perfectCount, bestCount);
 
     return {
       studentId: student.id,
       name: student.name,
       studentNo: student.studentNo,
       notes: student.notes,
-      rks: (bestSum + perfectSum) / divisor,
+      rks: summary.rks,
       rank: 0,
-      perfectResults,
-      bestResults,
-      firstBonus,
+      rksHistory,
+      perfectResults: summary.perfectResults,
+      bestResults: summary.bestResults,
+      firstBonus: summary.perfectResults[0] ?? null,
       results
     } satisfies StudentRks;
   });
@@ -176,4 +171,67 @@ function sortResultByDateDesc(a: ExamResult, b: ExamResult) {
     b.examId - a.examId ||
     b.examRks - a.examRks
   );
+}
+
+function sortResultByDateAsc(a: ExamResult, b: ExamResult) {
+  return (
+    a.examDate.localeCompare(b.examDate) ||
+    a.examId - b.examId ||
+    a.examRks - b.examRks
+  );
+}
+
+function summarizeResults(
+  results: ExamResult[],
+  perfectCount: number,
+  bestCount: number
+) {
+  const bestResults = [...results]
+    .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
+    .slice(0, bestCount);
+
+  const perfectResults = results
+    .filter((result) => result.isClassFirst)
+    .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
+    .slice(0, perfectCount);
+
+  const divisor = Math.max(1, perfectCount + bestCount);
+  const bestSum = bestResults.reduce((sum, result) => sum + result.examRks, 0);
+  const perfectSum = perfectResults.reduce(
+    (sum, result) => sum + result.examRks,
+    0
+  );
+
+  return {
+    rks: (bestSum + perfectSum) / divisor,
+    bestResults,
+    perfectResults
+  };
+}
+
+function buildRksHistory(
+  results: ExamResult[],
+  perfectCount: number,
+  bestCount: number
+) {
+  const chronological = [...results].sort(sortResultByDateAsc);
+  const history: RksHistoryPoint[] = [];
+  const seenResults: ExamResult[] = [];
+  let maxRks = 0;
+
+  for (const result of chronological) {
+    seenResults.push(result);
+
+    const summary = summarizeResults(seenResults, perfectCount, bestCount);
+    maxRks = Math.max(maxRks, summary.rks);
+
+    history.push({
+      examId: result.examId,
+      examName: result.examName,
+      examDate: result.examDate,
+      rks: maxRks
+    });
+  }
+
+  return history;
 }

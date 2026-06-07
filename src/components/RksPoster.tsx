@@ -6,6 +6,7 @@ import { toPng } from "html-to-image";
 import { Button } from "@cloudflare/kumo/components/button";
 
 import { PhigrosScoreCard } from "@/components/PhigrosScoreCard";
+import { RksSparkline } from "@/components/RksSparkline";
 import { formatRks } from "@/lib/format";
 import type { StudentRks } from "@/lib/rks";
 
@@ -77,6 +78,7 @@ export function RksPoster({
             <div className="poster-rks-block">
               <span>RKS</span>
               <strong>{formatRks(student.rks)}</strong>
+              <RksSparkline className="poster-sparkline" points={student.rksHistory} />
               {showRank ? (
                 <small>
                   #{student.rank} / {totalStudents}

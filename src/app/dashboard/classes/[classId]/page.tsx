@@ -11,6 +11,7 @@ import { Button, LinkButton } from "@cloudflare/kumo/components/button";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { Notice } from "@/components/Notice";
 import { PhigrosScoreCard } from "@/components/PhigrosScoreCard";
+import { RksSparkline } from "@/components/RksSparkline";
 import {
   createExamAction,
   createStudentAction,
@@ -524,7 +525,10 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                       b{student.bestResults.length}
                     </p>
                   </div>
-                  <strong className="rank-score">{formatRks(student.rks)}</strong>
+                  <div className="rank-rks-cell">
+                    <strong className="rank-score">{formatRks(student.rks)}</strong>
+                    <RksSparkline points={student.rksHistory} />
+                  </div>
                   <span className="muted">点击展开</span>
                 </summary>
                 <div className="rank-detail">
