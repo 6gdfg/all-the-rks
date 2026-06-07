@@ -735,7 +735,15 @@ textarea:focus {
 }
 
 .grade-mark-white-v {
-  color: #555555;
+  color: white;
+}
+
+.grade-mark-s,
+.grade-mark-a,
+.grade-mark-b,
+.grade-mark-c,
+.grade-mark-f {
+  color: white;
 }
 
 .phigros-score-block {
