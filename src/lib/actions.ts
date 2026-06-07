@@ -1,5 +1,6 @@
 "use server";
 
+import type { Sql, TransactionSql } from "postgres";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -12,8 +13,10 @@ import {
   verifyPassword
 } from "./auth";
 import { ensureSchema, getSql } from "./db";
-import { assertClassOwner } from "./data";
+import { assertClassOwner, getSharedRosterInfoForOwnedClass } from "./data";
 import { normalizeExamDifficulty } from "./difficulty";
+
+type QueryClient = Sql | TransactionSql;
 
 export async function registerTeacherAction(formData: FormData) {
   const username = normalizeUsername(readText(formData, "username"));
@@ -231,11 +234,18 @@ export async function createStudentAction(formData: FormData) {
     );
   }
 
-  await assertClassOwner(teacher.id, classId);
-
+  const roster = await getSharedRosterInfoForOwnedClass(teacher.id, classId);
   const sql = getSql();
 
   if (names.length === 1) {
+    const existing = await findSharedStudentByName(sql, roster.classIds, names[0]);
+
+    if (existing) {
+      redirect(
+        `/dashboard/classes/${classId}?error=${encodeURIComponent("这个班级里已有同名学生。")}`
+      );
+    }
+
     try {
       await sql`
         INSERT INTO students (class_id, name, student_no, notes)
@@ -262,6 +272,12 @@ export async function createStudentAction(formData: FormData) {
 
   await sql.begin(async (tx) => {
     for (const name of names) {
+      const existing = await findSharedStudentByName(tx, roster.classIds, name);
+
+      if (existing) {
+        continue;
+      }
+
       const rows = await tx<{ id: number }[]>`
         INSERT INTO students (class_id, name, student_no, notes)
         VALUES (${classId}, ${name}, '', '')
@@ -302,19 +318,37 @@ export async function updateStudentAction(formData: FormData) {
     );
   }
 
-  await assertClassOwner(teacher.id, classId);
-
+  const roster = await getSharedRosterInfoForOwnedClass(teacher.id, classId);
   const sql = getSql();
+  const existing = await findSharedStudentByName(
+    sql,
+    roster.classIds,
+    name,
+    studentId
+  );
+
+  if (existing) {
+    redirect(
+      `/dashboard/classes/${classId}?error=${encodeURIComponent("这个班级里已有同名学生。")}`
+    );
+  }
 
   try {
-    await sql`
+    const rows = await sql<{ id: number }[]>`
       UPDATE students
       SET name = ${name},
           student_no = ${studentNo},
           notes = ${notes}
       WHERE id = ${studentId}
-        AND class_id = ${classId}
+        AND class_id IN ${sql(roster.classIds)}
+      RETURNING id
     `;
+
+    if (!rows[0]) {
+      redirect(
+        `/dashboard/classes/${classId}?error=${encodeURIComponent("没有找到这个共享名单里的学生。")}`
+      );
+    }
   } catch (error) {
     if (isUniqueViolation(error)) {
       redirect(
@@ -337,13 +371,12 @@ export async function deleteStudentAction(formData: FormData) {
   const classId = readId(formData, "classId");
   const studentId = readId(formData, "studentId");
 
-  await assertClassOwner(teacher.id, classId);
-
+  const roster = await getSharedRosterInfoForOwnedClass(teacher.id, classId);
   const sql = getSql();
   await sql`
     DELETE FROM students
     WHERE id = ${studentId}
-      AND class_id = ${classId}
+      AND class_id IN ${sql(roster.classIds)}
   `;
 
   revalidatePath("/");
@@ -459,11 +492,12 @@ export async function saveScoresAction(formData: FormData) {
   const teacher = await requireTeacher();
   const classId = readId(formData, "classId");
 
-  await assertClassOwner(teacher.id, classId);
-
+  const roster = await getSharedRosterInfoForOwnedClass(teacher.id, classId);
   const sql = getSql();
   const students = await sql<{ id: number }[]>`
-    SELECT id FROM students WHERE class_id = ${classId}
+    SELECT id
+    FROM students
+    WHERE class_id IN ${sql(roster.classIds)}
   `;
   const exams = await sql<{ id: number; totalScore: number }[]>`
     SELECT id, total_score::FLOAT AS "totalScore"
@@ -607,6 +641,28 @@ function clamp(value: number, min: number, max: number) {
 
 function roundConstant(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+async function findSharedStudentByName(
+  sql: QueryClient,
+  classIds: number[],
+  name: string,
+  ignoredStudentId?: number
+) {
+  if (classIds.length === 0) {
+    return null;
+  }
+
+  const rows = await sql<{ id: number }[]>`
+    SELECT id
+    FROM students
+    WHERE class_id IN ${sql(classIds)}
+      AND name = ${name}
+      AND (${ignoredStudentId ?? 0} = 0 OR id <> ${ignoredStudentId ?? 0})
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
 }
 
 function isUniqueViolation(error: unknown) {

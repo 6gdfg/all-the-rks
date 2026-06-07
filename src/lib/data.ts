@@ -124,7 +124,7 @@ export async function getTeacherDashboard(teacherId: number) {
         name: row.name,
         subject: row.subject,
         createdAt: row.createdAt,
-        studentCount: Number(row.studentCount),
+        studentCount: detail.students.length,
         examCount: Number(row.examCount),
         topRks: topStudent?.rks ?? 0,
         topStudentName: topStudent?.name ?? ""
@@ -164,10 +164,11 @@ export async function getClassDetailById(teacherId: number, classId: number) {
     notFound();
   }
 
+  const sharedClassIds = await getSharedClassIdsByName(classRow.name);
   const settings = await getClassSettings(classId);
-  const students = await getStudents(classId);
+  const students = await getStudents(sharedClassIds);
   const exams = await getExams(classId);
-  const scores = await getScores(classId);
+  const scores = await getScores(classId, sharedClassIds);
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
     bestCount: settings.bestCount
@@ -243,14 +244,20 @@ export async function getPublicHomeData(query: string) {
         classId: number;
       }[]
     >`
-      SELECT students.id AS "studentId", classes.id AS "classId"
-      FROM students
-      INNER JOIN classes ON classes.id = students.class_id
-      INNER JOIN class_settings ON class_settings.class_id = classes.id
+      SELECT
+        students.id AS "studentId",
+        public_classes.id AS "classId"
+      FROM classes AS public_classes
+      INNER JOIN class_settings
+        ON class_settings.class_id = public_classes.id
+      INNER JOIN classes AS roster_classes
+        ON roster_classes.name = public_classes.name
+      INNER JOIN students
+        ON students.class_id = roster_classes.id
       WHERE class_settings.public_search_enabled = TRUE
         AND LOWER(students.name) LIKE ${pattern}
-      ORDER BY classes.created_at DESC, students.name ASC
-      LIMIT 20
+      ORDER BY public_classes.created_at DESC, students.name ASC
+      LIMIT 80
     `;
 
     const classIds = Array.from(new Set(matchedRows.map((row) => row.classId)));
@@ -259,6 +266,8 @@ export async function getPublicHomeData(query: string) {
     for (const classId of classIds) {
       bundles.set(classId, await getPublicClassBundle(Number(classId)));
     }
+
+    const resultsByName = new Map<string, PublicSearchResult>();
 
     for (const row of matchedRows) {
       const bundle = bundles.get(Number(row.classId));
@@ -270,15 +279,23 @@ export async function getPublicHomeData(query: string) {
         continue;
       }
 
-      results.push({
+      const result = {
         classId: bundle.id,
         className: bundle.name,
         subject: bundle.subject,
         settings: bundle.settings,
         student,
         totalStudents: bundle.rankings.length
-      });
+      };
+      const resultKey = `${bundle.id}:${student.name.trim().toLowerCase()}`;
+      const previous = resultsByName.get(resultKey);
+
+      if (!previous || student.rks > previous.student.rks) {
+        resultsByName.set(resultKey, result);
+      }
     }
+
+    results.push(...resultsByName.values());
   }
 
   return {
@@ -305,6 +322,33 @@ export async function assertClassOwner(teacherId: number, classId: number) {
   }
 }
 
+export async function getSharedRosterInfoForOwnedClass(
+  teacherId: number,
+  classId: number
+) {
+  await ensureSchema();
+
+  const sql = getSql();
+  const rows = await sql<{ name: string }[]>`
+    SELECT name
+    FROM classes
+    WHERE id = ${classId}
+      AND teacher_id = ${teacherId}
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+
+  if (!row) {
+    notFound();
+  }
+
+  return {
+    className: row.name,
+    classIds: await getSharedClassIdsByName(row.name)
+  };
+}
+
 async function getPublicClassBundle(classId: number) {
   const sql = getSql();
   const classRows = await sql<ClassRecord[]>`
@@ -324,10 +368,11 @@ async function getPublicClassBundle(classId: number) {
     notFound();
   }
 
+  const sharedClassIds = await getSharedClassIdsByName(classRow.name);
   const settings = await getClassSettings(classId);
-  const students = await getStudents(classId);
+  const students = await getStudents(sharedClassIds);
   const exams = await getExams(classId);
-  const scores = await getScores(classId);
+  const scores = await getScores(classId, sharedClassIds);
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
     bestCount: settings.bestCount
@@ -407,7 +452,23 @@ function clampInteger(value: number, min: number, max: number, fallback: number)
   return Math.min(Math.max(number, min), max);
 }
 
-async function getStudents(classId: number) {
+async function getSharedClassIdsByName(className: string) {
+  const sql = getSql();
+  const rows = await sql<{ id: number }[]>`
+    SELECT id
+    FROM classes
+    WHERE name = ${className}
+    ORDER BY id ASC
+  `;
+
+  return rows.map((row) => Number(row.id));
+}
+
+async function getStudents(classIds: number[]) {
+  if (classIds.length === 0) {
+    return [] as StudentRow[];
+  }
+
   const sql = getSql();
   const rows = await sql<StudentRow[]>`
     SELECT
@@ -416,7 +477,7 @@ async function getStudents(classId: number) {
       student_no AS "studentNo",
       notes
     FROM students
-    WHERE class_id = ${classId}
+    WHERE class_id IN ${sql(classIds)}
     ORDER BY student_no ASC, name ASC, id ASC
   `;
 
@@ -453,7 +514,11 @@ async function getExams(classId: number) {
   }));
 }
 
-async function getScores(classId: number) {
+async function getScores(classId: number, rosterClassIds: number[]) {
+  if (rosterClassIds.length === 0) {
+    return [] as ScoreRow[];
+  }
+
   const sql = getSql();
   const rows = await sql<ScoreRow[]>`
     SELECT
@@ -463,7 +528,7 @@ async function getScores(classId: number) {
     FROM scores
     INNER JOIN students ON students.id = scores.student_id
     INNER JOIN exams ON exams.id = scores.exam_id
-    WHERE students.class_id = ${classId}
+    WHERE students.class_id IN ${sql(rosterClassIds)}
       AND exams.class_id = ${classId}
     ORDER BY scores.exam_id DESC, students.name ASC
   `;
