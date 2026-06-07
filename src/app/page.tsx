@@ -1,6 +1,10 @@
-import { Search, Trophy } from "lucide-react";
+import { Search } from "lucide-react";
+import { Badge } from "@cloudflare/kumo/components/badge";
+import { Button } from "@cloudflare/kumo/components/button";
 
 import { DatabaseSetup } from "@/components/DatabaseSetup";
+import { PhigrosScoreCard } from "@/components/PhigrosScoreCard";
+import { RksPoster } from "@/components/RksPoster";
 import { formatDate, formatRks, formatScore } from "@/lib/format";
 import { getPublicHomeData } from "@/lib/data";
 
@@ -26,7 +30,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <h1>输入姓名，查看你的班级考试 RKS。</h1>
           <p>
             系统会按每次考试分数、总分和老师设置的定数自动计算单次 RKS，
-            再汇总最佳 14 次考试与班级第一加成。
+            再汇总 p1 与最佳 14 次考试。
           </p>
         </div>
         <div className="stat-band" aria-label="RKS 计算规则">
@@ -36,7 +40,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
           <div className="stat-item">
             <span className="stat-value">+1</span>
-            <span className="muted">班级第一加成位</span>
+            <span className="muted">p1 冠军位</span>
           </div>
           <div className="stat-item">
             <span className="stat-value">/15</span>
@@ -62,10 +66,10 @@ export default async function Home({ searchParams }: HomeProps) {
               autoComplete="name"
             />
           </label>
-          <button className="primary-button" type="submit">
+          <Button variant="primary" type="submit">
             <Search aria-hidden="true" size={17} />
             查询 RKS
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -82,7 +86,11 @@ export default async function Home({ searchParams }: HomeProps) {
             <div className="results-grid">
               {data.results.map((result) => (
                 <article
-                  className="result-card"
+                  className={
+                    result.settings.queryResultStyle === "poster"
+                      ? "result-card poster-result-card"
+                      : "result-card"
+                  }
                   key={`${result.classId}-${result.student.studentId}`}
                 >
                   <div className="result-top">
@@ -97,44 +105,35 @@ export default async function Home({ searchParams }: HomeProps) {
 
                   <div className="badge-row">
                     {result.settings.showStudentRank ? (
-                      <span className="badge">
+                      <Badge variant="outline">
                         班级第 {result.student.rank} / {result.totalStudents}
-                      </span>
+                      </Badge>
                     ) : null}
-                    <span className="badge">
+                    <Badge variant="outline">
                       已录入 {result.student.results.length} 次考试
-                    </span>
-                    {result.student.firstBonus ? (
-                      <span className="badge badge-gold">
-                        <Trophy aria-hidden="true" size={14} />
-                        第一加成 {formatRks(result.student.firstBonus.examRks)}
-                      </span>
-                    ) : (
-                      <span className="badge">第一加成 0.000</span>
-                    )}
+                    </Badge>
                   </div>
 
                   {result.settings.showExamScores ? (
-                    <div className="score-detail">
-                      <div className="mini-table">
-                        {result.student.results.length > 0 ? (
-                          result.student.results.map((item) => (
-                            <div className="mini-row" key={item.examId}>
-                              <span>
-                                {formatDate(item.examDate)} · {item.examName}
-                                {item.isClassFirst ? " · 班级第一" : ""}
-                              </span>
-                              <strong>
-                                {formatScore(item.score)}/{formatScore(item.totalScore)} ·{" "}
-                                {formatRks(item.examRks)}
-                              </strong>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="muted">还没有录入考试成绩。</p>
-                        )}
-                      </div>
-                    </div>
+                    <>
+                      {result.settings.queryResultStyle === "poster" ? (
+                        <RksPoster
+                          classNameText={result.className}
+                          subject={result.subject}
+                          student={result.student}
+                          showRank={result.settings.showStudentRank}
+                          totalStudents={result.totalStudents}
+                        />
+                      ) : (
+                        <div className="score-detail">
+                          {result.settings.queryResultStyle === "simple" ? (
+                            <SimpleScoreDetail student={result.student} />
+                          ) : (
+                            <PhigrosScoreDetail student={result.student} />
+                          )}
+                        </div>
+                      )}
+                    </>
                   ) : null}
                 </article>
               ))}
@@ -184,5 +183,95 @@ export default async function Home({ searchParams }: HomeProps) {
         </section>
       ) : null}
     </main>
+  );
+}
+
+type StudentResultProps = {
+  student: Awaited<ReturnType<typeof getPublicHomeData>>["results"][number]["student"];
+};
+
+function PhigrosScoreDetail({ student }: StudentResultProps) {
+  if (student.results.length === 0) {
+    return <p className="muted">还没有录入考试成绩。</p>;
+  }
+
+  return (
+    <div className="phigros-score-list">
+      {student.firstBonus ? (
+        <PhigrosScoreCard
+          key={`p1-${student.firstBonus.examId}`}
+          label="p1"
+          examName={student.firstBonus.examName}
+          difficulty={student.firstBonus.difficulty}
+          examDate={student.firstBonus.examDate}
+          score={student.firstBonus.score}
+          totalScore={student.firstBonus.totalScore}
+          examRks={student.firstBonus.examRks}
+          constantValue={student.firstBonus.constantValue}
+          isClassFirst={student.firstBonus.isClassFirst}
+        />
+      ) : null}
+      {student.bestResults.map((item, index) => (
+        <PhigrosScoreCard
+          key={`b${index + 1}-${item.examId}`}
+          label={`b${index + 1}`}
+          examName={item.examName}
+          difficulty={item.difficulty}
+          examDate={item.examDate}
+          score={item.score}
+          totalScore={item.totalScore}
+          examRks={item.examRks}
+          constantValue={item.constantValue}
+          isClassFirst={item.isClassFirst}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SimpleScoreDetail({ student }: StudentResultProps) {
+  if (student.results.length === 0) {
+    return <p className="muted">还没有录入考试成绩。</p>;
+  }
+
+  return (
+    <div className="mini-table">
+      {student.firstBonus ? (
+        <SimpleScoreRow
+          label="p1"
+          item={student.firstBonus}
+          key={`p1-${student.firstBonus.examId}`}
+        />
+      ) : null}
+      {student.bestResults.map((item, index) => (
+        <SimpleScoreRow item={item} label={`b${index + 1}`} key={item.examId} />
+      ))}
+    </div>
+  );
+}
+
+function SimpleScoreRow({
+  item,
+  label
+}: {
+  item: Awaited<
+    ReturnType<typeof getPublicHomeData>
+  >["results"][number]["student"]["results"][number];
+  label: string;
+}) {
+  return (
+    <div className="mini-row detail-rks-row">
+      <span className="detail-rks-main">
+        <strong className={label === "p1" ? "rks-label p1-label" : "rks-label"}>
+          {label}
+        </strong>
+        <span>
+          {item.difficulty} · {formatDate(item.examDate)} · {item.examName}
+        </span>
+      </span>
+      <strong>
+        {formatScore(item.score)}/{formatScore(item.totalScore)} · {formatRks(item.examRks)}
+      </strong>
+    </div>
   );
 }

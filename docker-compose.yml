@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: alltherks
+      POSTGRES_USER: alltherks
+      POSTGRES_PASSWORD: alltherks_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://alltherks:alltherks_password@postgres:5432/alltherks?sslmode=disable
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:

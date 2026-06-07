@@ -1,3 +1,5 @@
+import type { ExamDifficulty } from "./difficulty";
+
 export type StudentRow = {
   id: number;
   name: string;
@@ -8,6 +10,7 @@ export type StudentRow = {
 export type ExamRow = {
   id: number;
   name: string;
+  difficulty: ExamDifficulty;
   examDate: string;
   totalScore: number;
   constantValue: number;
@@ -22,6 +25,7 @@ export type ScoreRow = {
 export type ExamResult = {
   examId: number;
   examName: string;
+  difficulty: ExamDifficulty;
   examDate: string;
   score: number;
   totalScore: number;
@@ -88,6 +92,7 @@ export function calculateClassRks(
     const result: ExamResult = {
       examId: exam.id,
       examName: exam.name,
+      difficulty: exam.difficulty,
       examDate: exam.examDate,
       score: item.score,
       totalScore: exam.totalScore,

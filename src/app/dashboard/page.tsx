@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { LogOut, Plus, Settings } from "lucide-react";
+import { Button, LinkButton } from "@cloudflare/kumo/components/button";
 
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { Notice } from "@/components/Notice";
@@ -33,10 +33,10 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
         </div>
         <div className="toolbar-panel">
           <form action={logoutTeacherAction}>
-            <button className="ghost-button" type="submit">
+            <Button variant="ghost" type="submit">
               <LogOut aria-hidden="true" size={17} />
               退出登录
-            </button>
+            </Button>
           </form>
         </div>
       </section>
@@ -55,10 +55,10 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
             <span>学科</span>
             <input name="subject" placeholder="例如：数学" defaultValue="学科" />
           </label>
-          <button className="primary-button" type="submit">
+          <Button variant="primary" type="submit">
             <Plus aria-hidden="true" size={17} />
             创建班级
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -71,10 +71,10 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
                   <h2>{item.name}</h2>
                   <p className="muted">{item.subject}</p>
                 </div>
-                <Link className="primary-button" href={`/dashboard/classes/${item.id}`}>
+                <LinkButton variant="primary" href={`/dashboard/classes/${item.id}`}>
                   <Settings aria-hidden="true" size={17} />
                   打开
-                </Link>
+                </LinkButton>
               </div>
 
               <div className="class-metrics">

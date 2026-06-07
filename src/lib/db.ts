@@ -31,7 +31,8 @@ export function getSql() {
   if (!globalThis.rksSql) {
     const isLocal =
       connectionString.includes("localhost") ||
-      connectionString.includes("127.0.0.1");
+      connectionString.includes("127.0.0.1") ||
+      connectionString.includes("sslmode=disable");
 
     globalThis.rksSql = postgres(connectionString, {
       connect_timeout: 10,
@@ -105,9 +106,15 @@ async function migrate() {
       show_student_rank BOOLEAN NOT NULL DEFAULT TRUE,
       show_exam_scores BOOLEAN NOT NULL DEFAULT TRUE,
       public_search_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      query_result_style TEXT NOT NULL DEFAULT 'phigros',
       leaderboard_limit INTEGER NOT NULL DEFAULT 20,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS query_result_style TEXT NOT NULL DEFAULT 'phigros'
   `;
 
   await sql`
@@ -137,11 +144,45 @@ async function migrate() {
       id SERIAL PRIMARY KEY,
       class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      difficulty TEXT NOT NULL DEFAULT 'IN',
       exam_date DATE NOT NULL DEFAULT CURRENT_DATE,
       total_score NUMERIC(8, 2) NOT NULL CHECK (total_score > 0),
       constant_value NUMERIC(6, 1) NOT NULL CHECK (constant_value >= 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE exams
+    ADD COLUMN IF NOT EXISTS difficulty TEXT NOT NULL DEFAULT 'IN'
+  `;
+
+  await sql`
+    ALTER TABLE exams
+    ALTER COLUMN difficulty SET DEFAULT 'IN'
+  `;
+
+  await sql`
+    UPDATE exams
+    SET difficulty = 'IN'
+    WHERE difficulty IS NULL
+       OR difficulty NOT IN ('EZ', 'HD', 'IN', 'AT')
+  `;
+
+  await sql`
+    ALTER TABLE exams
+    ALTER COLUMN difficulty SET NOT NULL
+  `;
+
+  await sql`
+    ALTER TABLE exams
+    DROP CONSTRAINT IF EXISTS exams_difficulty_check
+  `;
+
+  await sql`
+    ALTER TABLE exams
+    ADD CONSTRAINT exams_difficulty_check
+    CHECK (difficulty IN ('EZ', 'HD', 'IN', 'AT'))
   `;
 
   await sql`

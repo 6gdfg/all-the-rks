@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Button } from "@cloudflare/kumo/components/button";
 
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { Notice } from "@/components/Notice";
@@ -54,10 +55,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
                 required
               />
             </label>
-            <button className="primary-button" type="submit">
+            <Button variant="primary" type="submit">
               <LogIn aria-hidden="true" size={17} />
               登录
-            </button>
+            </Button>
           </form>
         ) : (
           <div style={{ marginTop: 18 }}>

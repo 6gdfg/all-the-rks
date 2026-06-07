@@ -3,6 +3,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 
 import { ensureSchema, getSql, hasDatabaseUrl } from "./db";
+import { normalizeExamDifficulty } from "./difficulty";
 import {
   calculateClassRks,
   type ExamRow,
@@ -16,8 +17,11 @@ export type ClassSettings = {
   showStudentRank: boolean;
   showExamScores: boolean;
   publicSearchEnabled: boolean;
+  queryResultStyle: QueryResultStyle;
   leaderboardLimit: number;
 };
+
+export type QueryResultStyle = "poster" | "phigros" | "simple";
 
 export type ClassSummary = {
   id: number;
@@ -75,6 +79,7 @@ type SettingsRecord = {
   showStudentRank: boolean;
   showExamScores: boolean;
   publicSearchEnabled: boolean;
+  queryResultStyle: string;
   leaderboardLimit: number;
 };
 
@@ -195,6 +200,7 @@ export async function getPublicHomeData(query: string) {
       class_settings.show_student_rank AS "showStudentRank",
       class_settings.show_exam_scores AS "showExamScores",
       class_settings.public_search_enabled AS "publicSearchEnabled",
+      class_settings.query_result_style AS "queryResultStyle",
       class_settings.leaderboard_limit AS "leaderboardLimit"
     FROM classes
     INNER JOIN class_settings ON class_settings.class_id = classes.id
@@ -335,21 +341,42 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       show_student_rank AS "showStudentRank",
       show_exam_scores AS "showExamScores",
       public_search_enabled AS "publicSearchEnabled",
+      query_result_style AS "queryResultStyle",
       leaderboard_limit AS "leaderboardLimit"
     FROM class_settings
     WHERE class_id = ${classId}
     LIMIT 1
   `;
 
-  return (
-    rows[0] ?? {
+  const row = rows[0];
+
+  if (!row) {
+    return {
       showHomeLeaderboard: true,
       showStudentRank: true,
       showExamScores: true,
       publicSearchEnabled: true,
+      queryResultStyle: "phigros",
       leaderboardLimit: 20
-    }
-  );
+    };
+  }
+
+  return {
+    showHomeLeaderboard: row.showHomeLeaderboard,
+    showStudentRank: row.showStudentRank,
+    showExamScores: row.showExamScores,
+    publicSearchEnabled: row.publicSearchEnabled,
+    queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
+    leaderboardLimit: row.leaderboardLimit
+  };
+}
+
+function normalizeQueryResultStyle(value: string): QueryResultStyle {
+  if (value === "poster" || value === "simple") {
+    return value;
+  }
+
+  return "phigros";
 }
 
 async function getStudents(classId: number) {
@@ -379,6 +406,7 @@ async function getExams(classId: number) {
     SELECT
       id,
       name,
+      difficulty,
       exam_date::TEXT AS "examDate",
       total_score::FLOAT AS "totalScore",
       constant_value::FLOAT AS "constantValue"
@@ -390,6 +418,7 @@ async function getExams(classId: number) {
   return rows.map((row) => ({
     id: Number(row.id),
     name: row.name,
+    difficulty: normalizeExamDifficulty(row.difficulty),
     examDate: row.examDate,
     totalScore: Number(row.totalScore),
     constantValue: Number(row.constantValue)

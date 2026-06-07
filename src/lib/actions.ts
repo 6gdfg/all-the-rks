@@ -13,6 +13,7 @@ import {
 } from "./auth";
 import { ensureSchema, getSql } from "./db";
 import { assertClassOwner } from "./data";
+import { normalizeExamDifficulty } from "./difficulty";
 
 export async function registerTeacherAction(formData: FormData) {
   const username = normalizeUsername(readText(formData, "username"));
@@ -165,6 +166,7 @@ export async function updateSettingsAction(formData: FormData) {
   const teacher = await requireTeacher();
   const classId = readId(formData, "classId");
   const leaderboardLimit = clamp(readNumber(formData, "leaderboardLimit", 20), 3, 100);
+  const queryResultStyle = readQueryResultStyle(formData);
 
   await assertClassOwner(teacher.id, classId);
 
@@ -176,6 +178,7 @@ export async function updateSettingsAction(formData: FormData) {
       show_student_rank,
       show_exam_scores,
       public_search_enabled,
+      query_result_style,
       leaderboard_limit,
       updated_at
     )
@@ -185,6 +188,7 @@ export async function updateSettingsAction(formData: FormData) {
       ${readCheckbox(formData, "showStudentRank")},
       ${readCheckbox(formData, "showExamScores")},
       ${readCheckbox(formData, "publicSearchEnabled")},
+      ${queryResultStyle},
       ${leaderboardLimit},
       NOW()
     )
@@ -193,6 +197,7 @@ export async function updateSettingsAction(formData: FormData) {
         show_student_rank = EXCLUDED.show_student_rank,
         show_exam_scores = EXCLUDED.show_exam_scores,
         public_search_enabled = EXCLUDED.public_search_enabled,
+        query_result_style = EXCLUDED.query_result_style,
         leaderboard_limit = EXCLUDED.leaderboard_limit,
         updated_at = NOW()
   `;
@@ -207,11 +212,12 @@ export async function updateSettingsAction(formData: FormData) {
 export async function createStudentAction(formData: FormData) {
   const teacher = await requireTeacher();
   const classId = readId(formData, "classId");
-  const name = readText(formData, "name", 60);
+  const nameInput = readText(formData, "name", 1000);
+  const names = parseStudentNames(nameInput);
   const studentNo = readText(formData, "studentNo", 30);
   const notes = readText(formData, "notes", 160);
 
-  if (!name) {
+  if (names.length === 0) {
     redirect(
       `/dashboard/classes/${classId}?error=${encodeURIComponent("学生姓名不能为空。")}`
     );
@@ -221,25 +227,56 @@ export async function createStudentAction(formData: FormData) {
 
   const sql = getSql();
 
-  try {
-    await sql`
-      INSERT INTO students (class_id, name, student_no, notes)
-      VALUES (${classId}, ${name}, ${studentNo}, ${notes})
-    `;
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      redirect(
-        `/dashboard/classes/${classId}?error=${encodeURIComponent("这个班级里已有同名学生。")}`
-      );
+  if (names.length === 1) {
+    try {
+      await sql`
+        INSERT INTO students (class_id, name, student_no, notes)
+        VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes})
+      `;
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        redirect(
+          `/dashboard/classes/${classId}?error=${encodeURIComponent("这个班级里已有同名学生。")}`
+        );
+      }
+
+      throw error;
     }
 
-    throw error;
+    revalidatePath("/");
+    revalidatePath(`/dashboard/classes/${classId}`);
+    redirect(
+      `/dashboard/classes/${classId}?notice=${encodeURIComponent("学生已加入班级。")}`
+    );
   }
+
+  let insertedCount = 0;
+
+  await sql.begin(async (tx) => {
+    for (const name of names) {
+      const rows = await tx<{ id: number }[]>`
+        INSERT INTO students (class_id, name, student_no, notes)
+        VALUES (${classId}, ${name}, '', '')
+        ON CONFLICT (class_id, name) DO NOTHING
+        RETURNING id
+      `;
+
+      insertedCount += rows.length;
+    }
+  });
+
+  const skippedCount = names.length - insertedCount;
+  const notice =
+    insertedCount > 0
+      ? `已添加 ${insertedCount} 名学生${
+          skippedCount > 0 ? `，跳过 ${skippedCount} 个已存在姓名` : ""
+        }。`
+      : "没有添加新学生，可能这些姓名都已存在。";
 
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
-    `/dashboard/classes/${classId}?notice=${encodeURIComponent("学生已加入班级。")}`
+    `/dashboard/classes/${classId}?notice=${encodeURIComponent(notice)}`
   );
 }
 
@@ -312,6 +349,7 @@ export async function createExamAction(formData: FormData) {
   const teacher = await requireTeacher();
   const classId = readId(formData, "classId");
   const name = readText(formData, "name", 80);
+  const difficulty = readExamDifficulty(formData);
   const examDate = readText(formData, "examDate", 10);
   const totalScore = readNumber(formData, "totalScore", 100);
   const constantValue = readNumber(formData, "constantValue", 10);
@@ -326,10 +364,18 @@ export async function createExamAction(formData: FormData) {
 
   const sql = getSql();
   await sql`
-    INSERT INTO exams (class_id, name, exam_date, total_score, constant_value)
+    INSERT INTO exams (
+      class_id,
+      name,
+      difficulty,
+      exam_date,
+      total_score,
+      constant_value
+    )
     VALUES (
       ${classId},
       ${name},
+      ${difficulty},
       ${examDate || new Date().toISOString().slice(0, 10)},
       ${totalScore},
       ${roundConstant(constantValue)}
@@ -348,6 +394,7 @@ export async function updateExamAction(formData: FormData) {
   const classId = readId(formData, "classId");
   const examId = readId(formData, "examId");
   const name = readText(formData, "name", 80);
+  const difficulty = readExamDifficulty(formData);
   const examDate = readText(formData, "examDate", 10);
   const totalScore = readNumber(formData, "totalScore", 100);
   const constantValue = readNumber(formData, "constantValue", 10);
@@ -364,6 +411,7 @@ export async function updateExamAction(formData: FormData) {
   await sql`
     UPDATE exams
     SET name = ${name},
+        difficulty = ${difficulty},
         exam_date = ${examDate || new Date().toISOString().slice(0, 10)},
         total_score = ${totalScore},
         constant_value = ${roundConstant(constantValue)}
@@ -489,6 +537,24 @@ function readText(formData: FormData, key: string, maxLength = 120) {
     .slice(0, maxLength);
 }
 
+function parseStudentNames(input: string) {
+  const seen = new Set<string>();
+  const names: string[] = [];
+
+  for (const item of input.split(/[,，、;；\r\n]+/)) {
+    const name = item.trim().slice(0, 60);
+
+    if (!name || seen.has(name)) {
+      continue;
+    }
+
+    seen.add(name);
+    names.push(name);
+  }
+
+  return names;
+}
+
 function readId(formData: FormData, key: string) {
   const value = Number(formData.get(key));
 
@@ -511,6 +577,20 @@ function readNumber(formData: FormData, key: string, fallback: number) {
 
 function readCheckbox(formData: FormData, key: string) {
   return formData.get(key) === "on";
+}
+
+function readQueryResultStyle(formData: FormData) {
+  const value = String(formData.get("queryResultStyle") ?? "phigros");
+
+  if (value === "poster" || value === "simple") {
+    return value;
+  }
+
+  return "phigros";
+}
+
+function readExamDifficulty(formData: FormData) {
+  return normalizeExamDifficulty(String(formData.get("difficulty") ?? "IN"));
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -1,8 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import localFont from "next/font/local";
 import { BarChart3 } from "lucide-react";
+import { LinkButton } from "@cloudflare/kumo/components/button";
 
+import "@cloudflare/kumo/styles/standalone";
 import "./globals.css";
+
+const phigrosFont = localFont({
+  src: "../../public/fonts/cmdysj.woff2",
+  variable: "--font-phigros",
+  display: "swap",
+  preload: false
+});
 
 export const metadata: Metadata = {
   title: "学科实力 RKS",
@@ -16,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body>
+      <body className={phigrosFont.variable}>
         <div className="app-shell">
           <nav className="topbar" aria-label="主导航">
             <Link className="brand" href="/">
@@ -26,12 +36,12 @@ export default function RootLayout({
               <span>All The RKS</span>
             </Link>
             <div className="topbar-actions">
-              <Link className="link-button" href="/teacher/login">
+              <LinkButton variant="secondary" href="/teacher/login">
                 老师登录
-              </Link>
-              <Link className="primary-button" href="/teacher/register">
+              </LinkButton>
+              <LinkButton variant="primary" href="/teacher/register">
                 注册老师账号
-              </Link>
+              </LinkButton>
             </div>
           </nav>
           {children}

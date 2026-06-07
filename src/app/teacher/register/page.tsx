@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Button } from "@cloudflare/kumo/components/button";
 
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { Notice } from "@/components/Notice";
@@ -54,10 +55,10 @@ export default async function RegisterPage({ searchParams }: PageProps) {
                 required
               />
             </label>
-            <button className="primary-button" type="submit">
+            <Button variant="primary" type="submit">
               <UserPlus aria-hidden="true" size={17} />
               注册并进入控制台
-            </button>
+            </Button>
           </form>
         ) : (
           <div style={{ marginTop: 18 }}>
