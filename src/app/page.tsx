@@ -26,11 +26,10 @@ export default async function Home({ searchParams }: HomeProps) {
     <main>
       <section className="page-hero">
         <div className="hero-copy">
-          <p className="eyebrow">学科实力 RKS 查询</p>
-          <h1>输入姓名，查看你的班级考试 RKS。</h1>
+          <p className="eyebrow">All The RKS</p>
+          <h1>输入姓名，查看你的 RKS(Ranking Score)。</h1>
           <p>
-            系统会按每次考试分数、总分和老师设置的定数自动计算单次 RKS，
-            再汇总 p1 与最佳 14 次考试。
+            rks仅供娱乐。
           </p>
         </div>
         <div className="stat-band" aria-label="RKS 计算规则">
@@ -40,11 +39,11 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
           <div className="stat-item">
             <span className="stat-value">+1</span>
-            <span className="muted">p1 冠军位</span>
+            <span className="muted">默认 p1 冠军位</span>
           </div>
           <div className="stat-item">
             <span className="stat-value">/15</span>
-            <span className="muted">固定平均分母</span>
+            <span className="muted">默认平均分母</span>
           </div>
           <div className="stat-item">
             <span className="stat-value">0.1</span>
@@ -112,6 +111,11 @@ export default async function Home({ searchParams }: HomeProps) {
                     <Badge variant="outline">
                       已录入 {result.student.results.length} 次考试
                     </Badge>
+                    <Badge variant="outline">
+                      {`（p${result.settings.perfectCount} + b${
+                        result.settings.bestCount
+                      }）/${result.settings.perfectCount + result.settings.bestCount}`}
+                    </Badge>
                   </div>
 
                   {result.settings.showExamScores ? (
@@ -123,6 +127,8 @@ export default async function Home({ searchParams }: HomeProps) {
                           student={result.student}
                           showRank={result.settings.showStudentRank}
                           totalStudents={result.totalStudents}
+                          perfectCount={result.settings.perfectCount}
+                          bestCount={result.settings.bestCount}
                         />
                       ) : (
                         <div className="score-detail">
@@ -197,21 +203,21 @@ function PhigrosScoreDetail({ student }: StudentResultProps) {
 
   return (
     <div className="phigros-score-list">
-      {student.firstBonus ? (
+      {student.perfectResults.map((item, index) => (
         <PhigrosScoreCard
-          key={`p1-${student.firstBonus.examId}`}
-          label="p1"
-          examName={student.firstBonus.examName}
-          difficulty={student.firstBonus.difficulty}
-          examDate={student.firstBonus.examDate}
-          score={student.firstBonus.score}
-          totalScore={student.firstBonus.totalScore}
-          examRks={student.firstBonus.examRks}
-          constantValue={student.firstBonus.constantValue}
-          isClassFirst={student.firstBonus.isClassFirst}
+          key={`p${index + 1}-${item.examId}`}
+          label={`p${index + 1}`}
+          examName={item.examName}
+          difficulty={item.difficulty}
+          examDate={item.examDate}
+          score={item.score}
+          totalScore={item.totalScore}
+          examRks={item.examRks}
+          constantValue={item.constantValue}
+          isClassFirst={item.isClassFirst}
           className="phigros-p1-card"
         />
-      ) : null}
+      ))}
       {student.bestResults.map((item, index) => (
         <PhigrosScoreCard
           key={`b${index + 1}-${item.examId}`}
@@ -237,13 +243,13 @@ function SimpleScoreDetail({ student }: StudentResultProps) {
 
   return (
     <div className="mini-table">
-      {student.firstBonus ? (
+      {student.perfectResults.map((item, index) => (
         <SimpleScoreRow
-          label="p1"
-          item={student.firstBonus}
-          key={`p1-${student.firstBonus.examId}`}
+          label={`p${index + 1}`}
+          item={item}
+          key={`p${index + 1}-${item.examId}`}
         />
-      ) : null}
+      ))}
       {student.bestResults.map((item, index) => (
         <SimpleScoreRow item={item} label={`b${index + 1}`} key={item.examId} />
       ))}
@@ -263,7 +269,7 @@ function SimpleScoreRow({
   return (
     <div className="mini-row detail-rks-row">
       <span className="detail-rks-main">
-        <strong className={label === "p1" ? "rks-label p1-label" : "rks-label"}>
+        <strong className={label.startsWith("p") ? "rks-label p1-label" : "rks-label"}>
           {label}
         </strong>
         <span>

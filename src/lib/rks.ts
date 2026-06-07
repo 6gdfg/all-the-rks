@@ -41,9 +41,15 @@ export type StudentRks = {
   notes: string;
   rks: number;
   rank: number;
+  perfectResults: ExamResult[];
   bestResults: ExamResult[];
   firstBonus: ExamResult | null;
   results: ExamResult[];
+};
+
+export type RksFormulaConfig = {
+  perfectCount: number;
+  bestCount: number;
 };
 
 export function calculateExamRks(
@@ -61,8 +67,12 @@ export function calculateExamRks(
 export function calculateClassRks(
   students: StudentRow[],
   exams: ExamRow[],
-  scores: ScoreRow[]
+  scores: ScoreRow[],
+  config: RksFormulaConfig = { perfectCount: 1, bestCount: 14 }
 ) {
+  const perfectCount = Math.max(0, Math.floor(config.perfectCount));
+  const bestCount = Math.max(1, Math.floor(config.bestCount));
+  const divisor = Math.max(1, perfectCount + bestCount);
   const examsById = new Map(exams.map((exam) => [exam.id, exam]));
   const maxScoreByExam = new Map<number, number>();
 
@@ -113,24 +123,29 @@ export function calculateClassRks(
 
     const bestResults = [...results]
       .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
-      .slice(0, 14);
+      .slice(0, bestCount);
 
-    const firstBonus =
-      results
-        .filter((result) => result.isClassFirst)
-        .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))[0] ??
-      null;
+    const perfectResults = results
+      .filter((result) => result.isClassFirst)
+      .sort((a, b) => b.examRks - a.examRks || sortResultByDateDesc(a, b))
+      .slice(0, perfectCount);
+
+    const firstBonus = perfectResults[0] ?? null;
 
     const bestSum = bestResults.reduce((sum, result) => sum + result.examRks, 0);
-    const firstBonusValue = firstBonus?.examRks ?? 0;
+    const perfectSum = perfectResults.reduce(
+      (sum, result) => sum + result.examRks,
+      0
+    );
 
     return {
       studentId: student.id,
       name: student.name,
       studentNo: student.studentNo,
       notes: student.notes,
-      rks: (bestSum + firstBonusValue) / 15,
+      rks: (bestSum + perfectSum) / divisor,
       rank: 0,
+      perfectResults,
       bestResults,
       firstBonus,
       results

@@ -15,7 +15,7 @@ const phigrosFont = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "学科实力 RKS",
+  title: "All The RKS",
   description: "面向班级考试的学科实力 RKS 计算与查询系统"
 };
 

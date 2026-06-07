@@ -167,6 +167,8 @@ export async function updateSettingsAction(formData: FormData) {
   const classId = readId(formData, "classId");
   const leaderboardLimit = clamp(readNumber(formData, "leaderboardLimit", 20), 3, 100);
   const queryResultStyle = readQueryResultStyle(formData);
+  const perfectCount = clamp(readNumber(formData, "perfectCount", 1), 0, 10);
+  const bestCount = clamp(readNumber(formData, "bestCount", 14), 1, 100);
 
   await assertClassOwner(teacher.id, classId);
 
@@ -179,6 +181,8 @@ export async function updateSettingsAction(formData: FormData) {
       show_exam_scores,
       public_search_enabled,
       query_result_style,
+      perfect_count,
+      best_count,
       leaderboard_limit,
       updated_at
     )
@@ -189,6 +193,8 @@ export async function updateSettingsAction(formData: FormData) {
       ${readCheckbox(formData, "showExamScores")},
       ${readCheckbox(formData, "publicSearchEnabled")},
       ${queryResultStyle},
+      ${Math.floor(perfectCount)},
+      ${Math.floor(bestCount)},
       ${leaderboardLimit},
       NOW()
     )
@@ -198,6 +204,8 @@ export async function updateSettingsAction(formData: FormData) {
         show_exam_scores = EXCLUDED.show_exam_scores,
         public_search_enabled = EXCLUDED.public_search_enabled,
         query_result_style = EXCLUDED.query_result_style,
+        perfect_count = EXCLUDED.perfect_count,
+        best_count = EXCLUDED.best_count,
         leaderboard_limit = EXCLUDED.leaderboard_limit,
         updated_at = NOW()
   `;

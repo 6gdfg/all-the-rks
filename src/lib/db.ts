@@ -107,6 +107,8 @@ async function migrate() {
       show_exam_scores BOOLEAN NOT NULL DEFAULT TRUE,
       public_search_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       query_result_style TEXT NOT NULL DEFAULT 'phigros',
+      perfect_count INTEGER NOT NULL DEFAULT 1,
+      best_count INTEGER NOT NULL DEFAULT 14,
       leaderboard_limit INTEGER NOT NULL DEFAULT 20,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -115,6 +117,54 @@ async function migrate() {
   await sql`
     ALTER TABLE class_settings
     ADD COLUMN IF NOT EXISTS query_result_style TEXT NOT NULL DEFAULT 'phigros'
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS perfect_count INTEGER NOT NULL DEFAULT 1
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS best_count INTEGER NOT NULL DEFAULT 14
+  `;
+
+  await sql`
+    UPDATE class_settings
+    SET perfect_count = 1
+    WHERE perfect_count IS NULL
+       OR perfect_count < 0
+       OR perfect_count > 10
+  `;
+
+  await sql`
+    UPDATE class_settings
+    SET best_count = 14
+    WHERE best_count IS NULL
+       OR best_count < 1
+       OR best_count > 100
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    DROP CONSTRAINT IF EXISTS class_settings_perfect_count_check
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD CONSTRAINT class_settings_perfect_count_check
+    CHECK (perfect_count BETWEEN 0 AND 10)
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    DROP CONSTRAINT IF EXISTS class_settings_best_count_check
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD CONSTRAINT class_settings_best_count_check
+    CHECK (best_count BETWEEN 1 AND 100)
   `;
 
   await sql`

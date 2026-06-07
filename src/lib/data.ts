@@ -18,6 +18,8 @@ export type ClassSettings = {
   showExamScores: boolean;
   publicSearchEnabled: boolean;
   queryResultStyle: QueryResultStyle;
+  perfectCount: number;
+  bestCount: number;
   leaderboardLimit: number;
 };
 
@@ -80,6 +82,8 @@ type SettingsRecord = {
   showExamScores: boolean;
   publicSearchEnabled: boolean;
   queryResultStyle: string;
+  perfectCount: number;
+  bestCount: number;
   leaderboardLimit: number;
 };
 
@@ -164,7 +168,10 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   const students = await getStudents(classId);
   const exams = await getExams(classId);
   const scores = await getScores(classId);
-  const rankings = calculateClassRks(students, exams, scores);
+  const rankings = calculateClassRks(students, exams, scores, {
+    perfectCount: settings.perfectCount,
+    bestCount: settings.bestCount
+  });
 
   return {
     id: Number(classRow.id),
@@ -201,6 +208,8 @@ export async function getPublicHomeData(query: string) {
       class_settings.show_exam_scores AS "showExamScores",
       class_settings.public_search_enabled AS "publicSearchEnabled",
       class_settings.query_result_style AS "queryResultStyle",
+      class_settings.perfect_count AS "perfectCount",
+      class_settings.best_count AS "bestCount",
       class_settings.leaderboard_limit AS "leaderboardLimit"
     FROM classes
     INNER JOIN class_settings ON class_settings.class_id = classes.id
@@ -319,7 +328,10 @@ async function getPublicClassBundle(classId: number) {
   const students = await getStudents(classId);
   const exams = await getExams(classId);
   const scores = await getScores(classId);
-  const rankings = calculateClassRks(students, exams, scores);
+  const rankings = calculateClassRks(students, exams, scores, {
+    perfectCount: settings.perfectCount,
+    bestCount: settings.bestCount
+  });
 
   return {
     id: Number(classRow.id),
@@ -342,6 +354,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       show_exam_scores AS "showExamScores",
       public_search_enabled AS "publicSearchEnabled",
       query_result_style AS "queryResultStyle",
+      perfect_count AS "perfectCount",
+      best_count AS "bestCount",
       leaderboard_limit AS "leaderboardLimit"
     FROM class_settings
     WHERE class_id = ${classId}
@@ -357,6 +371,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       showExamScores: true,
       publicSearchEnabled: true,
       queryResultStyle: "phigros",
+      perfectCount: 1,
+      bestCount: 14,
       leaderboardLimit: 20
     };
   }
@@ -367,6 +383,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
     showExamScores: row.showExamScores,
     publicSearchEnabled: row.publicSearchEnabled,
     queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
+    perfectCount: clampInteger(row.perfectCount, 0, 10, 1),
+    bestCount: clampInteger(row.bestCount, 1, 100, 14),
     leaderboardLimit: row.leaderboardLimit
   };
 }
@@ -377,6 +395,16 @@ function normalizeQueryResultStyle(value: string): QueryResultStyle {
   }
 
   return "phigros";
+}
+
+function clampInteger(value: number, min: number, max: number, fallback: number) {
+  const number = Math.floor(Number(value));
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(number, min), max);
 }
 
 async function getStudents(classId: number) {

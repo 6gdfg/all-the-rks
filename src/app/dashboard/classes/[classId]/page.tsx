@@ -112,7 +112,11 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             <h2>
               <Settings aria-hidden="true" size={18} /> 展示设置
             </h2>
-            <p className="muted">控制首页、学生查询页和成绩明细的公开程度。</p>
+            <p className="muted">
+              {`控制公开展示和 RKS 公式。当前公式：（p${detail.settings.perfectCount} + b${
+                detail.settings.bestCount
+              }）/${detail.settings.perfectCount + detail.settings.bestCount}`}
+            </p>
           </div>
         </div>
         <form className="settings-grid" action={updateSettingsAction}>
@@ -181,6 +185,28 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               </label>
             </div>
           </div>
+          <label className="field">
+            <span>p 数量</span>
+            <input
+              name="perfectCount"
+              type="number"
+              min={0}
+              max={10}
+              step={1}
+              defaultValue={detail.settings.perfectCount}
+            />
+          </label>
+          <label className="field">
+            <span>b 数量</span>
+            <input
+              name="bestCount"
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              defaultValue={detail.settings.bestCount}
+            />
+          </label>
           <label className="field">
             <span>首页排行榜人数</span>
             <input
@@ -478,7 +504,10 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             <h2>
               <Trophy aria-hidden="true" size={18} /> RKS 排行
             </h2>
-            <p className="muted">按 p1 和最佳 14 次考试实时计算。</p>
+            <p className="muted">
+              按 p{detail.settings.perfectCount} 和最佳 {detail.settings.bestCount}{" "}
+              次考试实时计算。
+            </p>
           </div>
         </div>
 
@@ -491,7 +520,8 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                   <div>
                     <strong>{student.name}</strong>
                     <p className="muted">
-                      {student.results.length} 次成绩 · 最佳 {student.bestResults.length} 次
+                      {student.results.length} 次成绩 · p{student.perfectResults.length} +
+                      b{student.bestResults.length}
                     </p>
                   </div>
                   <strong className="rank-score">{formatRks(student.rks)}</strong>
@@ -500,21 +530,21 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 <div className="rank-detail">
                   {student.results.length > 0 ? (
                     <div className="phigros-score-list rank-score-list">
-                      {student.firstBonus ? (
+                      {student.perfectResults.map((item, index) => (
                         <PhigrosScoreCard
-                          key={`p1-${student.firstBonus.examId}`}
-                          label="p1"
-                          examName={student.firstBonus.examName}
-                          difficulty={student.firstBonus.difficulty}
-                          examDate={student.firstBonus.examDate}
-                          score={student.firstBonus.score}
-                          totalScore={student.firstBonus.totalScore}
-                          examRks={student.firstBonus.examRks}
-                          constantValue={student.firstBonus.constantValue}
-                          isClassFirst={student.firstBonus.isClassFirst}
+                          key={`p${index + 1}-${item.examId}`}
+                          label={`p${index + 1}`}
+                          examName={item.examName}
+                          difficulty={item.difficulty}
+                          examDate={item.examDate}
+                          score={item.score}
+                          totalScore={item.totalScore}
+                          examRks={item.examRks}
+                          constantValue={item.constantValue}
+                          isClassFirst={item.isClassFirst}
                           className="phigros-p1-card"
                         />
-                      ) : null}
+                      ))}
                       {student.bestResults.map((item, index) => (
                         <PhigrosScoreCard
                           key={`b${index + 1}-${item.examId}`}

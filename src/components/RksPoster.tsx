@@ -15,6 +15,8 @@ type RksPosterProps = {
   student: StudentRks;
   showRank: boolean;
   totalStudents: number;
+  perfectCount: number;
+  bestCount: number;
 };
 
 export function RksPoster({
@@ -22,7 +24,9 @@ export function RksPoster({
   subject,
   student,
   showRank,
-  totalStudents
+  totalStudents,
+  perfectCount,
+  bestCount
 }: RksPosterProps) {
   const posterRef = useRef<HTMLDivElement>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -87,34 +91,35 @@ export function RksPoster({
               <strong>{student.results.length}</strong>
             </div>
             <div>
-              <span>p1</span>
-              <strong>{student.firstBonus ? formatRks(student.firstBonus.examRks) : "--"}</strong>
+              <span>p{perfectCount}</span>
+              <strong>{student.perfectResults.length}</strong>
             </div>
             <div>
-              <span>b14</span>
+              <span>b{bestCount}</span>
               <strong>{student.bestResults.length}</strong>
             </div>
           </div>
 
           <div className="poster-divider">
-            <span>P1 + BEST 14</span>
+            <span>P{perfectCount} + BEST {bestCount}</span>
           </div>
 
           <div className="poster-score-grid">
-            {student.firstBonus ? (
+            {student.perfectResults.map((item, index) => (
               <PhigrosScoreCard
-                label="p1"
-                examName={student.firstBonus.examName}
-                difficulty={student.firstBonus.difficulty}
-                examDate={student.firstBonus.examDate}
-                score={student.firstBonus.score}
-                totalScore={student.firstBonus.totalScore}
-                examRks={student.firstBonus.examRks}
-                constantValue={student.firstBonus.constantValue}
-                isClassFirst={student.firstBonus.isClassFirst}
+                key={`p${index + 1}-${item.examId}`}
+                label={`p${index + 1}`}
+                examName={item.examName}
+                difficulty={item.difficulty}
+                examDate={item.examDate}
+                score={item.score}
+                totalScore={item.totalScore}
+                examRks={item.examRks}
+                constantValue={item.constantValue}
+                isClassFirst={item.isClassFirst}
                 className="phigros-p1-card"
               />
-            ) : null}
+            ))}
             {student.bestResults.map((item, index) => (
               <PhigrosScoreCard
                 key={`${index}-${item.examId}`}

@@ -581,6 +581,39 @@ textarea:focus {
 
 .phigros-p1-card {
   grid-column: 1 / -1;
+  background:
+    linear-gradient(112deg, rgba(0, 0, 0, 0.04) 0 9%, transparent 9% 100%),
+    linear-gradient(95deg, #ffffff, var(--grade-soft));
+}
+
+.phigros-p1-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: 196px;
+  background: #111111;
+  clip-path: polygon(0 0, 100% 0, 72% 100%, 0 100%);
+}
+
+.phigros-p1-card .phigros-slot,
+.phigros-p1-card .phigros-card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.phigros-p1-card .phigros-card-content {
+  padding-left: 24px;
+}
+
+.phigros-p1-card .phigros-card-top,
+.phigros-p1-card .phigros-card-bottom {
+  padding-left: 174px;
+}
+
+.phigros-p1-card .phigros-card-mid {
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 22px;
 }
 
 .phigros-slot {
@@ -1335,6 +1368,24 @@ textarea:focus {
 
   .phigros-card-content {
     padding-left: 54px;
+  }
+
+  .phigros-p1-card::after {
+    width: 128px;
+  }
+
+  .phigros-p1-card .phigros-card-content {
+    padding-left: 18px;
+  }
+
+  .phigros-p1-card .phigros-card-top,
+  .phigros-p1-card .phigros-card-bottom {
+    padding-left: 116px;
+  }
+
+  .phigros-p1-card .phigros-card-mid {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 16px;
   }
 
   .phigros-score-block strong {
