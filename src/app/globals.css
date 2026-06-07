@@ -579,6 +579,10 @@ textarea:focus {
   --grade-soft: #f4f4f4;
 }
 
+.phigros-p1-card {
+  grid-column: 1 / -1;
+}
+
 .phigros-slot {
   position: absolute;
   top: 0;
@@ -618,6 +622,7 @@ textarea:focus {
   overflow: hidden;
   color: var(--ink);
   font-size: 1rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

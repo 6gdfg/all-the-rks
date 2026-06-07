@@ -500,10 +500,25 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 <div className="rank-detail">
                   {student.results.length > 0 ? (
                     <div className="phigros-score-list rank-score-list">
-                      {student.results.map((item, index) => (
+                      {student.firstBonus ? (
                         <PhigrosScoreCard
-                          key={item.examId}
-                          label={`#${index + 1}`}
+                          key={`p1-${student.firstBonus.examId}`}
+                          label="p1"
+                          examName={student.firstBonus.examName}
+                          difficulty={student.firstBonus.difficulty}
+                          examDate={student.firstBonus.examDate}
+                          score={student.firstBonus.score}
+                          totalScore={student.firstBonus.totalScore}
+                          examRks={student.firstBonus.examRks}
+                          constantValue={student.firstBonus.constantValue}
+                          isClassFirst={student.firstBonus.isClassFirst}
+                          className="phigros-p1-card"
+                        />
+                      ) : null}
+                      {student.bestResults.map((item, index) => (
+                        <PhigrosScoreCard
+                          key={`b${index + 1}-${item.examId}`}
+                          label={`b${index + 1}`}
                           examName={item.examName}
                           difficulty={item.difficulty}
                           examDate={item.examDate}

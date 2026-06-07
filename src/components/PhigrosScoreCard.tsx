@@ -12,6 +12,7 @@ type PhigrosScoreCardProps = {
   examRks: number;
   constantValue?: number;
   isClassFirst?: boolean;
+  className?: string;
 };
 
 export function PhigrosScoreCard({
@@ -23,22 +24,22 @@ export function PhigrosScoreCard({
   totalScore,
   examRks,
   constantValue,
-  isClassFirst = false
+  isClassFirst = false,
+  className
 }: PhigrosScoreCardProps) {
   const percent = getScorePercent(score, totalScore);
   const grade = getScoreGrade(score, totalScore);
+  const rksLine =
+    constantValue !== undefined
+      ? `${difficulty} ${constantValue.toFixed(1)} → ${formatRks(examRks)}`
+      : `${difficulty} → ${formatRks(examRks)}`;
 
   return (
-    <article className={`phigros-score-card grade-${grade.key}`}>
+    <article className={`phigros-score-card grade-${grade.key}${className ? ` ${className}` : ""}`}>
       <div className="phigros-slot">{label}</div>
       <div className="phigros-card-content">
         <div className="phigros-card-top">
-          <h3>
-            <span className={`difficulty-pill difficulty-${difficulty.toLowerCase()}`}>
-              {difficulty}
-            </span>
-            <span className="phigros-exam-name">{examName}</span>
-          </h3>
+          <h3>{examName}</h3>
           <span>{formatDate(examDate)}</span>
         </div>
         <div className="phigros-card-mid">
@@ -58,10 +59,7 @@ export function PhigrosScoreCard({
           </div>
         </div>
         <div className="phigros-card-bottom">
-          {constantValue !== undefined ? (
-            <span>定数 {constantValue.toFixed(1)}</span>
-          ) : null}
-          <span>RKS {formatRks(examRks)}</span>
+          <span>{rksLine}</span>
           {isClassFirst ? <span>班级第一</span> : null}
         </div>
       </div>

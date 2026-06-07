@@ -112,6 +112,7 @@ export function RksPoster({
                 examRks={student.firstBonus.examRks}
                 constantValue={student.firstBonus.constantValue}
                 isClassFirst={student.firstBonus.isClassFirst}
+                className="phigros-p1-card"
               />
             ) : null}
             {student.bestResults.map((item, index) => (
