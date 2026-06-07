@@ -15,13 +15,17 @@ export const runtime = "nodejs";
 type HomeProps = {
   searchParams?: Promise<{
     q?: string;
+    subject?: string | string[];
   }>;
 };
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const query = params.q ?? "";
-  const data = await getPublicHomeData(query);
+  const selectedSubjects = normalizeSelectedSubjects(params.subject);
+  const selectedSubjectSet = new Set(selectedSubjects);
+  const data = await getPublicHomeData(query, selectedSubjects);
+  const allSubjectsHref = query ? `/?q=${encodeURIComponent(query)}` : "/";
 
   return (
     <main>
@@ -66,10 +70,38 @@ export default async function Home({ searchParams }: HomeProps) {
               autoComplete="name"
             />
           </label>
-          <Button variant="primary" type="submit">
+          <Button className="search-submit" variant="primary" type="submit">
             <Search aria-hidden="true" size={17} />
             查询 RKS
           </Button>
+          {data.subjectOptions.length > 0 ? (
+            <fieldset className="subject-filter">
+              <legend>查询学科</legend>
+              <div className="subject-options">
+                <a
+                  className={
+                    selectedSubjects.length === 0
+                      ? "subject-chip-link active"
+                      : "subject-chip-link"
+                  }
+                  href={allSubjectsHref}
+                >
+                  全部
+                </a>
+                {data.subjectOptions.map((option) => (
+                  <label className="subject-chip" key={option.subject}>
+                    <input
+                      type="checkbox"
+                      name="subject"
+                      value={option.subject}
+                      defaultChecked={selectedSubjectSet.has(option.subject)}
+                    />
+                    <span>{option.subject}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
         </form>
       </section>
 
@@ -78,7 +110,11 @@ export default async function Home({ searchParams }: HomeProps) {
           <div className="panel-header">
             <div>
               <h2>查询结果</h2>
-              <p className="muted">同名学生会按班级分别显示。</p>
+              <p className="muted">
+                {selectedSubjects.length > 0
+                  ? `已筛选：${selectedSubjects.join("、")}`
+                  : "同名学生会按班级和学科分别显示。"}
+              </p>
             </div>
           </div>
 
@@ -149,7 +185,7 @@ export default async function Home({ searchParams }: HomeProps) {
               ))}
             </div>
           ) : (
-            <div className="empty-state">没有找到可公开查询的同名学生。</div>
+            <div className="empty-state">没有找到有成绩数据的公开查询结果。</div>
           )}
         </section>
       ) : null}
@@ -194,6 +230,25 @@ export default async function Home({ searchParams }: HomeProps) {
       ) : null}
     </main>
   );
+}
+
+function normalizeSelectedSubjects(value: string | string[] | undefined) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  const seen = new Set<string>();
+  const subjects: string[] = [];
+
+  for (const item of values) {
+    const subject = item.trim().slice(0, 40);
+
+    if (!subject || seen.has(subject)) {
+      continue;
+    }
+
+    seen.add(subject);
+    subjects.push(subject);
+  }
+
+  return subjects;
 }
 
 type StudentResultProps = {

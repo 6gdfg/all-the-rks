@@ -64,6 +64,10 @@ export type PublicLeaderboard = {
   students: StudentRks[];
 };
 
+export type PublicSubjectOption = {
+  subject: string;
+};
+
 type ClassRecord = {
   id: number;
   name: string;
@@ -186,10 +190,11 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   } satisfies ClassDetail;
 }
 
-export async function getPublicHomeData(query: string) {
+export async function getPublicHomeData(query: string, subjects: string[] = []) {
   if (!hasDatabaseUrl()) {
     return {
       databaseReady: false,
+      subjectOptions: [] as PublicSubjectOption[],
       leaderboards: [] as PublicLeaderboard[],
       results: [] as PublicSearchResult[]
     };
@@ -198,6 +203,12 @@ export async function getPublicHomeData(query: string) {
   await ensureSchema();
 
   const sql = getSql();
+  const selectedSubjects = normalizeSubjectFilters(subjects);
+  const subjectRows = await sql<PublicSubjectOption[]>`
+    SELECT DISTINCT classes.subject
+    FROM classes
+    ORDER BY classes.subject ASC
+  `;
   const leaderboardClasses = await sql<(ClassRecord & SettingsRecord)[]>`
     SELECT
       classes.id,
@@ -238,6 +249,10 @@ export async function getPublicHomeData(query: string) {
 
   if (trimmedQuery) {
     const pattern = `%${trimmedQuery.toLowerCase()}%`;
+    const subjectFilter =
+      selectedSubjects.length > 0
+        ? sql`AND public_classes.subject IN ${sql(selectedSubjects)}`
+        : sql``;
     const matchedRows = await sql<
       {
         studentId: number;
@@ -256,6 +271,7 @@ export async function getPublicHomeData(query: string) {
         ON students.class_id = roster_classes.id
       WHERE class_settings.public_search_enabled = TRUE
         AND LOWER(students.name) LIKE ${pattern}
+        ${subjectFilter}
       ORDER BY public_classes.created_at DESC, students.name ASC
       LIMIT 80
     `;
@@ -275,7 +291,7 @@ export async function getPublicHomeData(query: string) {
         (item) => item.studentId === Number(row.studentId)
       );
 
-      if (!bundle || !student) {
+      if (!bundle || !student || student.results.length === 0) {
         continue;
       }
 
@@ -300,6 +316,9 @@ export async function getPublicHomeData(query: string) {
 
   return {
     databaseReady: true,
+    subjectOptions: subjectRows.map((row) => ({
+      subject: row.subject
+    })),
     leaderboards,
     results
   };
@@ -450,6 +469,24 @@ function clampInteger(value: number, min: number, max: number, fallback: number)
   }
 
   return Math.min(Math.max(number, min), max);
+}
+
+function normalizeSubjectFilters(subjects: string[]) {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const subject of subjects) {
+    const value = subject.trim().slice(0, 40);
+
+    if (!value || seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    normalized.push(value);
+  }
+
+  return normalized;
 }
 
 async function getSharedClassIdsByName(className: string) {

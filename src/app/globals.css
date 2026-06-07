@@ -312,6 +312,76 @@ p {
   align-items: end;
 }
 
+.search-submit {
+  min-height: 38px;
+}
+
+.subject-filter {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 9px;
+  min-width: 0;
+  margin: 2px 0 0;
+  border: 0;
+  padding: 0;
+}
+
+.subject-filter legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.subject-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.subject-chip,
+.subject-chip-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 0.84rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.subject-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.subject-chip span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+}
+
+.subject-chip:has(input:focus-visible),
+.subject-chip-link:focus-visible {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+  outline: none;
+}
+
+.subject-chip:has(input:checked),
+.subject-chip-link.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: white;
+}
+
 .field,
 .compact-field {
   display: grid;
