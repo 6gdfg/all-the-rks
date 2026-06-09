@@ -65,6 +65,90 @@ docker compose up -d --build
 
 生产环境请修改 `docker-compose.yml` 里的数据库密码，并用外部安全网络或托管 PostgreSQL。
 
+## VPS 部署
+
+如果主要用户在中国大陆，自托管到大陆云服务器通常会比 Vercel 更稳定、更低延迟。使用中国大陆地域服务器和域名公开访问时，一般需要先完成 ICP 备案；如果暂时不想备案，可以先选择中国香港、日本或新加坡等区域，但大陆访问速度仍取决于线路质量。
+
+### 方案 A：Docker Compose（推荐）
+
+1. 在服务器安装 Docker 和 Docker Compose。
+2. 拉取代码并进入项目目录：
+
+```bash
+git clone <你的仓库地址> alltherks
+cd alltherks
+```
+
+3. 修改 `docker-compose.yml`：
+
+- 把 `POSTGRES_PASSWORD` 改成强密码。
+- 同步修改 `DATABASE_URL` 里的密码。
+- 生产环境建议不要把 PostgreSQL 的 `5432` 暴露到公网，可以删除 `ports: - "5432:5432"`。
+
+4. 启动：
+
+```bash
+docker compose up -d --build
+```
+
+5. 查看运行状态：
+
+```bash
+docker compose ps
+docker compose logs -f app
+```
+
+### 方案 B：Node + PM2 + PostgreSQL
+
+1. 安装 Node.js 22、PostgreSQL、Nginx、PM2。
+2. 创建数据库和用户：
+
+```sql
+CREATE USER alltherks WITH PASSWORD '请换成强密码';
+CREATE DATABASE alltherks OWNER alltherks;
+```
+
+3. 拉取代码并构建：
+
+```bash
+git clone <你的仓库地址> alltherks
+cd alltherks
+npm ci
+DATABASE_URL="postgres://alltherks:请换成强密码@127.0.0.1:5432/alltherks?sslmode=disable" npm run build
+```
+
+4. 启动 standalone 服务：
+
+```bash
+cd .next/standalone
+DATABASE_URL="postgres://alltherks:请换成强密码@127.0.0.1:5432/alltherks?sslmode=disable" \
+PORT=3000 \
+NODE_ENV=production \
+pm2 start server.js --name alltherks
+pm2 save
+pm2 startup
+```
+
+5. 用 Nginx 反向代理到本机 `3000` 端口：
+
+```nginx
+server {
+  listen 80;
+  server_name your-domain.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
+
+6. 配置 HTTPS 后，把域名解析到服务器公网 IP。
+
 ## Docker 镜像部署
 
 构建镜像：

@@ -68,6 +68,17 @@ export type PublicSubjectOption = {
   subject: string;
 };
 
+export type PublicHomeData = {
+  databaseReady: boolean;
+  subjectOptions: PublicSubjectOption[];
+  leaderboards: PublicLeaderboard[];
+  results: PublicSearchResult[];
+};
+
+type PublicHomeOptions = {
+  includeLeaderboards?: boolean;
+};
+
 type ClassRecord = {
   id: number;
   name: string;
@@ -190,7 +201,11 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   } satisfies ClassDetail;
 }
 
-export async function getPublicHomeData(query: string, subjects: string[] = []) {
+export async function getPublicHomeData(
+  query: string,
+  subjects: string[] = [],
+  options: PublicHomeOptions = {}
+): Promise<PublicHomeData> {
   if (!hasDatabaseUrl()) {
     return {
       databaseReady: false,
@@ -209,40 +224,8 @@ export async function getPublicHomeData(query: string, subjects: string[] = []) 
     FROM classes
     ORDER BY classes.subject ASC
   `;
-  const leaderboardClasses = await sql<(ClassRecord & SettingsRecord)[]>`
-    SELECT
-      classes.id,
-      classes.name,
-      classes.subject,
-      classes.created_at::TEXT AS "createdAt",
-      class_settings.show_home_leaderboard AS "showHomeLeaderboard",
-      class_settings.show_student_rank AS "showStudentRank",
-      class_settings.show_exam_scores AS "showExamScores",
-      class_settings.public_search_enabled AS "publicSearchEnabled",
-      class_settings.query_result_style AS "queryResultStyle",
-      class_settings.perfect_count AS "perfectCount",
-      class_settings.best_count AS "bestCount",
-      class_settings.leaderboard_limit AS "leaderboardLimit"
-    FROM classes
-    INNER JOIN class_settings ON class_settings.class_id = classes.id
-    WHERE class_settings.show_home_leaderboard = TRUE
-    ORDER BY classes.created_at DESC, classes.id DESC
-  `;
-
-  const leaderboards = await Promise.all(
-    leaderboardClasses.map(async (item) => {
-      const bundle = await getPublicClassBundle(Number(item.id));
-      const limit = Math.max(1, Number(item.leaderboardLimit) || 20);
-
-      return {
-        classId: Number(item.id),
-        className: item.name,
-        subject: item.subject,
-        limit,
-        students: bundle.rankings.slice(0, limit)
-      };
-    })
-  );
+  const leaderboards =
+    options.includeLeaderboards === false ? [] : await getPublicLeaderboards();
 
   const trimmedQuery = query.trim();
   const results: PublicSearchResult[] = [];
@@ -322,6 +305,44 @@ export async function getPublicHomeData(query: string, subjects: string[] = []) 
     leaderboards,
     results
   };
+}
+
+async function getPublicLeaderboards() {
+  const sql = getSql();
+  const leaderboardClasses = await sql<(ClassRecord & SettingsRecord)[]>`
+    SELECT
+      classes.id,
+      classes.name,
+      classes.subject,
+      classes.created_at::TEXT AS "createdAt",
+      class_settings.show_home_leaderboard AS "showHomeLeaderboard",
+      class_settings.show_student_rank AS "showStudentRank",
+      class_settings.show_exam_scores AS "showExamScores",
+      class_settings.public_search_enabled AS "publicSearchEnabled",
+      class_settings.query_result_style AS "queryResultStyle",
+      class_settings.perfect_count AS "perfectCount",
+      class_settings.best_count AS "bestCount",
+      class_settings.leaderboard_limit AS "leaderboardLimit"
+    FROM classes
+    INNER JOIN class_settings ON class_settings.class_id = classes.id
+    WHERE class_settings.show_home_leaderboard = TRUE
+    ORDER BY classes.created_at DESC, classes.id DESC
+  `;
+
+  return Promise.all(
+    leaderboardClasses.map(async (item) => {
+      const bundle = await getPublicClassBundle(Number(item.id));
+      const limit = Math.max(1, Number(item.leaderboardLimit) || 20);
+
+      return {
+        classId: Number(item.id),
+        className: item.name,
+        subject: item.subject,
+        limit,
+        students: bundle.rankings.slice(0, limit)
+      };
+    })
+  );
 }
 
 export async function assertClassOwner(teacherId: number, classId: number) {

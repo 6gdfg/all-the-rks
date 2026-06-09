@@ -339,10 +339,10 @@ p {
   gap: 8px;
 }
 
-.subject-chip,
-.subject-chip-link {
+.subject-chip-button {
   position: relative;
   display: inline-flex;
+  width: auto;
   min-height: 32px;
   align-items: center;
   justify-content: center;
@@ -354,32 +354,25 @@ p {
   font-size: 0.84rem;
   font-weight: 850;
   line-height: 1;
+  cursor: pointer;
 }
 
-.subject-chip input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.subject-chip span {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-}
-
-.subject-chip:has(input:focus-visible),
-.subject-chip-link:focus-visible {
+.subject-chip-button:focus-visible {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
   outline: none;
 }
 
-.subject-chip:has(input:checked),
-.subject-chip-link.active {
+.subject-chip-button[data-selected="true"] {
   border-color: var(--ink);
   background: var(--ink);
   color: white;
+}
+
+.subject-chip-button[data-selected="false"] {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
 }
 
 .field,
@@ -576,6 +569,20 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.query-status {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .badge {
@@ -901,6 +908,33 @@ textarea:focus {
 .poster-actions {
   justify-content: flex-end;
   margin-bottom: 12px;
+}
+
+.poster-placeholder {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  padding: 14px;
+}
+
+.poster-placeholder div {
+  display: grid;
+  gap: 4px;
+}
+
+.poster-placeholder strong {
+  color: var(--ink);
+}
+
+.poster-placeholder span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 750;
 }
 
 .poster-scroll {
