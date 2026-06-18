@@ -99,6 +99,11 @@ type ClassSummaryRecord = ClassRecord & {
   examCount: number;
 };
 
+type DashboardClassSummaryRecord = ClassSummaryRecord & {
+  topRks: number | null;
+  topStudentName: string | null;
+};
+
 type SettingsRecord = {
   showHomeLeaderboard: boolean;
   showStudentRank: boolean;
@@ -113,6 +118,102 @@ type SettingsRecord = {
   leaderboardLimit: number;
 };
 
+type SnapshotRow = {
+  classId: number;
+  studentId: number;
+  studentName: string;
+  studentNo: string;
+  notes: string;
+  rks: number;
+  rank: number;
+  resultCount: number;
+  snapshot: StudentRks;
+};
+
+export async function refreshClassRksSnapshots(classId: number) {
+  await ensureSchema();
+
+  const sql = getSql();
+  const classRows = await sql<{ name: string }[]>`
+    SELECT name
+    FROM classes
+    WHERE id = ${classId}
+    LIMIT 1
+  `;
+  const classRow = classRows[0];
+
+  if (!classRow) {
+    return;
+  }
+
+  const sharedClassIds = await getSharedClassIdsByName(classRow.name);
+  const settings = await getClassSettings(classId);
+  const students = await getStudents(sharedClassIds);
+  const exams = await getExams(classId);
+  const scores = await getScores(classId, sharedClassIds);
+  const rankings = calculateClassRks(students, exams, scores, {
+    perfectCount: settings.perfectCount,
+    bestCount: settings.bestCount,
+    autoClassFirst: settings.autoClassFirst,
+    formulaMode: settings.rksFormulaMode,
+    formulaExponent: settings.rksFormulaExponent
+  });
+  const studentIds = rankings.map((student) => student.studentId);
+
+  await sql.begin(async (tx) => {
+    if (studentIds.length === 0) {
+      await tx`
+        DELETE FROM rks_snapshots
+        WHERE class_id = ${classId}
+      `;
+    } else {
+      await tx`
+        DELETE FROM rks_snapshots
+        WHERE class_id = ${classId}
+          AND student_id NOT IN ${tx(studentIds)}
+      `;
+    }
+
+    for (const student of rankings) {
+      await tx`
+        INSERT INTO rks_snapshots (
+          class_id,
+          student_id,
+          student_name,
+          student_no,
+          notes,
+          rks,
+          rank,
+          result_count,
+          snapshot,
+          updated_at
+        )
+        VALUES (
+          ${classId},
+          ${student.studentId},
+          ${student.name},
+          ${student.studentNo},
+          ${student.notes},
+          ${student.rks},
+          ${student.rank},
+          ${student.results.length},
+          ${tx.json(student)},
+          NOW()
+        )
+        ON CONFLICT (class_id, student_id) DO UPDATE
+        SET student_name = EXCLUDED.student_name,
+            student_no = EXCLUDED.student_no,
+            notes = EXCLUDED.notes,
+            rks = EXCLUDED.rks,
+            rank = EXCLUDED.rank,
+            result_count = EXCLUDED.result_count,
+            snapshot = EXCLUDED.snapshot,
+            updated_at = NOW()
+      `;
+    }
+  });
+}
+
 export async function getTeacherDashboard(teacherId: number) {
   if (!hasDatabaseUrl()) {
     return {
@@ -124,44 +225,63 @@ export async function getTeacherDashboard(teacherId: number) {
   await ensureSchema();
 
   const sql = getSql();
-  const rows = await sql<ClassSummaryRecord[]>`
+  let rows = await getDashboardClassRows(sql, teacherId);
+  const staleClassIds = rows
+    .filter(
+      (row) =>
+        Number(row.examCount) > 0 &&
+        Number(row.studentCount) > 0 &&
+        !row.topStudentName
+    )
+    .map((row) => Number(row.id));
+
+  if (staleClassIds.length > 0) {
+    await Promise.all(staleClassIds.map((classId) => refreshClassRksSnapshots(classId)));
+    rows = await getDashboardClassRows(sql, teacherId);
+  }
+
+  const classes = rows.map((row) => ({
+    id: Number(row.id),
+    name: row.name,
+    subject: row.subject,
+    createdAt: row.createdAt,
+    studentCount: Number(row.studentCount),
+    examCount: Number(row.examCount),
+    topRks: Number(row.topRks ?? 0),
+    topStudentName: row.topStudentName ?? ""
+  }));
+
+  return {
+    databaseReady: true,
+    classes
+  };
+}
+
+async function getDashboardClassRows(sql: ReturnType<typeof getSql>, teacherId: number) {
+  return sql<DashboardClassSummaryRecord[]>`
     SELECT
       classes.id,
       classes.name,
       classes.subject,
       classes.created_at::TEXT AS "createdAt",
       COUNT(DISTINCT students.id)::INTEGER AS "studentCount",
-      COUNT(DISTINCT exams.id)::INTEGER AS "examCount"
+      COUNT(DISTINCT exams.id)::INTEGER AS "examCount",
+      COALESCE(top_snapshot.rks, 0)::FLOAT AS "topRks",
+      COALESCE(top_snapshot.student_name, '') AS "topStudentName"
     FROM classes
     LEFT JOIN students ON students.class_id = classes.id
     LEFT JOIN exams ON exams.class_id = classes.id
+    LEFT JOIN LATERAL (
+      SELECT rks_snapshots.rks, rks_snapshots.student_name
+      FROM rks_snapshots
+      WHERE rks_snapshots.class_id = classes.id
+      ORDER BY rks_snapshots.rank ASC, rks_snapshots.rks DESC
+      LIMIT 1
+    ) AS top_snapshot ON TRUE
     WHERE classes.teacher_id = ${teacherId}
-    GROUP BY classes.id
+    GROUP BY classes.id, top_snapshot.rks, top_snapshot.student_name
     ORDER BY classes.created_at DESC, classes.id DESC
   `;
-
-  const classes = await Promise.all(
-    rows.map(async (row) => {
-      const detail = await getClassDetailById(teacherId, Number(row.id));
-      const topStudent = detail.rankings[0];
-
-      return {
-        id: Number(row.id),
-        name: row.name,
-        subject: row.subject,
-        createdAt: row.createdAt,
-        studentCount: detail.students.length,
-        examCount: Number(row.examCount),
-        topRks: topStudent?.rks ?? 0,
-        topStudentName: topStudent?.name ?? ""
-      };
-    })
-  );
-
-  return {
-    databaseReady: true,
-    classes
-  };
 }
 
 export async function getClassDetailById(teacherId: number, classId: number) {
@@ -195,13 +315,12 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   const students = await getStudents(sharedClassIds);
   const exams = await getExams(classId);
   const scores = await getScores(classId, sharedClassIds);
-  const rankings = calculateClassRks(students, exams, scores, {
-    perfectCount: settings.perfectCount,
-    bestCount: settings.bestCount,
-    autoClassFirst: settings.autoClassFirst,
-    formulaMode: settings.rksFormulaMode,
-    formulaExponent: settings.rksFormulaExponent
-  });
+  let rankings = await getSnapshotRankings(classId);
+
+  if (rankings.length === 0 && scores.length > 0) {
+    await refreshClassRksSnapshots(classId);
+    rankings = await getSnapshotRankings(classId);
+  }
 
   return {
     id: Number(classRow.id),
@@ -246,61 +365,31 @@ export async function getPublicHomeData(
 
   if (trimmedQuery) {
     const pattern = `%${trimmedQuery.toLowerCase()}%`;
-    const subjectFilter =
-      selectedSubjects.length > 0
-        ? sql`AND public_classes.subject IN ${sql(selectedSubjects)}`
-        : sql``;
-    const matchedRows = await sql<
-      {
-        studentId: number;
-        classId: number;
-      }[]
-    >`
-      SELECT
-        students.id AS "studentId",
-        public_classes.id AS "classId"
-      FROM classes AS public_classes
-      INNER JOIN class_settings
-        ON class_settings.class_id = public_classes.id
-      INNER JOIN classes AS roster_classes
-        ON roster_classes.name = public_classes.name
-      INNER JOIN students
-        ON students.class_id = roster_classes.id
-      WHERE class_settings.public_search_enabled = TRUE
-        AND LOWER(students.name) LIKE ${pattern}
-        ${subjectFilter}
-      ORDER BY public_classes.created_at DESC, students.name ASC
-      LIMIT 80
-    `;
+    let matchedRows = await getPublicSearchSnapshotRows(pattern, selectedSubjects);
 
-    const classIds = Array.from(new Set(matchedRows.map((row) => row.classId)));
-    const bundles = new Map<number, Awaited<ReturnType<typeof getPublicClassBundle>>>();
-
-    for (const classId of classIds) {
-      bundles.set(classId, await getPublicClassBundle(Number(classId)));
+    if (matchedRows.length === 0) {
+      await warmSnapshotsForPublicSearch(trimmedQuery, selectedSubjects);
+      matchedRows = await getPublicSearchSnapshotRows(pattern, selectedSubjects);
     }
 
     const resultsByName = new Map<string, PublicSearchResult>();
 
     for (const row of matchedRows) {
-      const bundle = bundles.get(Number(row.classId));
-      const student = bundle?.rankings.find(
-        (item) => item.studentId === Number(row.studentId)
-      );
+      const student = normalizeSnapshot(row);
 
-      if (!bundle || !student || student.results.length === 0) {
+      if (student.results.length === 0) {
         continue;
       }
 
       const result = {
-        classId: bundle.id,
-        className: bundle.name,
-        subject: bundle.subject,
-        settings: bundle.settings,
+        classId: Number(row.classId),
+        className: row.name,
+        subject: row.subject,
+        settings: mapSettingsRecord(row),
         student,
-        totalStudents: bundle.rankings.length
+        totalStudents: Number(row.totalStudents)
       };
-      const resultKey = `${bundle.id}:${student.name.trim().toLowerCase()}`;
+      const resultKey = `${row.classId}:${student.name.trim().toLowerCase()}`;
       const previous = resultsByName.get(resultKey);
 
       if (!previous || student.rks > previous.student.rks) {
@@ -348,18 +437,161 @@ async function getPublicLeaderboards() {
 
   return Promise.all(
     leaderboardClasses.map(async (item) => {
-      const bundle = await getPublicClassBundle(Number(item.id));
       const limit = Math.max(1, Number(item.leaderboardLimit) || 20);
+      let rows = await getLeaderboardSnapshotRows(Number(item.id), limit);
+
+      if (rows.length === 0) {
+        await refreshClassRksSnapshots(Number(item.id));
+        rows = await getLeaderboardSnapshotRows(Number(item.id), limit);
+      }
 
       return {
         classId: Number(item.id),
         className: item.name,
         subject: item.subject,
         limit,
-        students: bundle.rankings.slice(0, limit)
+        students: rows.map(normalizeSnapshot)
       };
     })
   );
+}
+
+async function getLeaderboardSnapshotRows(classId: number, limit: number) {
+  const sql = getSql();
+
+  return sql<SnapshotRow[]>`
+        SELECT
+          class_id AS "classId",
+          student_id AS "studentId",
+          student_name AS "studentName",
+          student_no AS "studentNo",
+          notes,
+          rks::FLOAT AS rks,
+          rank,
+          result_count AS "resultCount",
+          snapshot
+        FROM rks_snapshots
+        WHERE class_id = ${classId}
+          AND result_count > 0
+        ORDER BY rank ASC, rks DESC, student_name ASC
+        LIMIT ${limit}
+      `;
+}
+
+async function getSnapshotRankings(classId: number) {
+  const sql = getSql();
+  const rows = await sql<SnapshotRow[]>`
+    SELECT
+      class_id AS "classId",
+      student_id AS "studentId",
+      student_name AS "studentName",
+      student_no AS "studentNo",
+      notes,
+      rks::FLOAT AS rks,
+      rank,
+      result_count AS "resultCount",
+      snapshot
+    FROM rks_snapshots
+    WHERE class_id = ${classId}
+    ORDER BY rank ASC, rks DESC, student_name ASC
+  `;
+
+  return rows.map(normalizeSnapshot);
+}
+
+async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: string[]) {
+  const sql = getSql();
+  const subjectFilter =
+    selectedSubjects.length > 0
+      ? sql`AND classes.subject IN ${sql(selectedSubjects)}`
+      : sql``;
+
+  return sql<
+    (ClassRecord &
+      SettingsRecord &
+      SnapshotRow & {
+        totalStudents: number;
+      })[]
+  >`
+    SELECT
+      classes.id,
+      classes.name,
+      classes.subject,
+      classes.created_at::TEXT AS "createdAt",
+      class_settings.show_home_leaderboard AS "showHomeLeaderboard",
+      class_settings.show_student_rank AS "showStudentRank",
+      class_settings.show_exam_scores AS "showExamScores",
+      class_settings.public_search_enabled AS "publicSearchEnabled",
+      class_settings.query_result_style AS "queryResultStyle",
+      class_settings.auto_class_first AS "autoClassFirst",
+      class_settings.rks_formula_mode AS "rksFormulaMode",
+      class_settings.rks_formula_exponent::FLOAT AS "rksFormulaExponent",
+      class_settings.perfect_count AS "perfectCount",
+      class_settings.best_count AS "bestCount",
+      class_settings.leaderboard_limit AS "leaderboardLimit",
+      rks_snapshots.class_id AS "classId",
+      rks_snapshots.student_id AS "studentId",
+      rks_snapshots.student_name AS "studentName",
+      rks_snapshots.student_no AS "studentNo",
+      rks_snapshots.notes,
+      rks_snapshots.rks::FLOAT AS rks,
+      rks_snapshots.rank,
+      rks_snapshots.result_count AS "resultCount",
+      rks_snapshots.snapshot,
+      COUNT(*) OVER (PARTITION BY classes.id)::INTEGER AS "totalStudents"
+    FROM rks_snapshots
+    INNER JOIN classes ON classes.id = rks_snapshots.class_id
+    INNER JOIN class_settings ON class_settings.class_id = classes.id
+    WHERE class_settings.public_search_enabled = TRUE
+      AND rks_snapshots.result_count > 0
+      AND LOWER(rks_snapshots.student_name) LIKE ${pattern}
+      ${subjectFilter}
+    ORDER BY classes.created_at DESC, rks_snapshots.student_name ASC
+    LIMIT 80
+  `;
+}
+
+async function warmSnapshotsForPublicSearch(query: string, selectedSubjects: string[]) {
+  const sql = getSql();
+  const pattern = `%${query.toLowerCase()}%`;
+  const subjectFilter =
+    selectedSubjects.length > 0
+      ? sql`AND public_classes.subject IN ${sql(selectedSubjects)}`
+      : sql``;
+  const classRows = await sql<{ classId: number }[]>`
+    SELECT DISTINCT public_classes.id AS "classId"
+    FROM classes AS public_classes
+    INNER JOIN class_settings
+      ON class_settings.class_id = public_classes.id
+    INNER JOIN classes AS roster_classes
+      ON roster_classes.name = public_classes.name
+    INNER JOIN students
+      ON students.class_id = roster_classes.id
+    WHERE class_settings.public_search_enabled = TRUE
+      AND LOWER(students.name) LIKE ${pattern}
+      ${subjectFilter}
+    LIMIT 20
+  `;
+
+  await Promise.all(
+    classRows.map((row) => refreshClassRksSnapshots(Number(row.classId)))
+  );
+}
+
+export async function getPublicLeaderboardData() {
+  if (!hasDatabaseUrl()) {
+    return {
+      databaseReady: false,
+      leaderboards: [] as PublicLeaderboard[]
+    };
+  }
+
+  await ensureSchema();
+
+  return {
+    databaseReady: true,
+    leaderboards: await getPublicLeaderboards()
+  };
 }
 
 export async function assertClassOwner(teacherId: number, classId: number) {
@@ -406,47 +638,33 @@ export async function getSharedRosterInfoForOwnedClass(
   };
 }
 
-async function getPublicClassBundle(classId: number) {
-  const sql = getSql();
-  const classRows = await sql<ClassRecord[]>`
-    SELECT
-      id,
-      name,
-      subject,
-      created_at::TEXT AS "createdAt"
-    FROM classes
-    WHERE id = ${classId}
-    LIMIT 1
-  `;
+function mapSettingsRecord(row: SettingsRecord): ClassSettings {
+  return {
+    showHomeLeaderboard: row.showHomeLeaderboard,
+    showStudentRank: row.showStudentRank,
+    showExamScores: row.showExamScores,
+    publicSearchEnabled: row.publicSearchEnabled,
+    queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
+    autoClassFirst: row.autoClassFirst,
+    rksFormulaMode: normalizeRksFormulaMode(row.rksFormulaMode),
+    rksFormulaExponent: normalizeRksFormulaExponent(row.rksFormulaExponent),
+    perfectCount: clampInteger(row.perfectCount, 0, 10, 1),
+    bestCount: clampInteger(row.bestCount, 1, 100, 14),
+    leaderboardLimit: row.leaderboardLimit
+  };
+}
 
-  const classRow = classRows[0];
-
-  if (!classRow) {
-    notFound();
-  }
-
-  const sharedClassIds = await getSharedClassIdsByName(classRow.name);
-  const settings = await getClassSettings(classId);
-  const students = await getStudents(sharedClassIds);
-  const exams = await getExams(classId);
-  const scores = await getScores(classId, sharedClassIds);
-  const rankings = calculateClassRks(students, exams, scores, {
-    perfectCount: settings.perfectCount,
-    bestCount: settings.bestCount,
-    autoClassFirst: settings.autoClassFirst,
-    formulaMode: settings.rksFormulaMode,
-    formulaExponent: settings.rksFormulaExponent
-  });
+function normalizeSnapshot(row: SnapshotRow): StudentRks {
+  const snapshot = row.snapshot;
 
   return {
-    id: Number(classRow.id),
-    name: classRow.name,
-    subject: classRow.subject,
-    settings,
-    students,
-    exams,
-    scores,
-    rankings
+    ...snapshot,
+    studentId: Number(row.studentId),
+    name: row.studentName,
+    studentNo: row.studentNo,
+    notes: row.notes,
+    rks: Number(row.rks),
+    rank: Number(row.rank)
   };
 }
 
@@ -488,19 +706,7 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
     };
   }
 
-  return {
-    showHomeLeaderboard: row.showHomeLeaderboard,
-    showStudentRank: row.showStudentRank,
-    showExamScores: row.showExamScores,
-    publicSearchEnabled: row.publicSearchEnabled,
-    queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
-    autoClassFirst: row.autoClassFirst,
-    rksFormulaMode: normalizeRksFormulaMode(row.rksFormulaMode),
-    rksFormulaExponent: normalizeRksFormulaExponent(row.rksFormulaExponent),
-    perfectCount: clampInteger(row.perfectCount, 0, 10, 1),
-    bestCount: clampInteger(row.bestCount, 1, 100, 14),
-    leaderboardLimit: row.leaderboardLimit
-  };
+  return mapSettingsRecord(row);
 }
 
 function normalizeQueryResultStyle(value: string): QueryResultStyle {

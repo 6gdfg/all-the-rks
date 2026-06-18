@@ -16,7 +16,9 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const query = params.q ?? "";
   const selectedSubjects = normalizeSelectedSubjects(params.subject);
-  const data = await getPublicHomeData(query, selectedSubjects);
+  const data = await getPublicHomeData(query, selectedSubjects, {
+    includeLeaderboards: false
+  });
 
   return (
     <main>

@@ -13,7 +13,11 @@ import {
   verifyPassword
 } from "./auth";
 import { ensureSchema, getSql } from "./db";
-import { assertClassOwner, getSharedRosterInfoForOwnedClass } from "./data";
+import {
+  assertClassOwner,
+  getSharedRosterInfoForOwnedClass,
+  refreshClassRksSnapshots
+} from "./data";
 import { normalizeExamDifficulty } from "./difficulty";
 import {
   DEFAULT_RKS_FORMULA_EXPONENT,
@@ -124,6 +128,7 @@ export async function createClassAction(formData: FormData) {
     ON CONFLICT (class_id) DO NOTHING
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/dashboard");
   redirect(
     `/dashboard/classes/${classId}?notice=${encodeURIComponent("班级已创建。")}`
@@ -153,6 +158,7 @@ export async function updateClassAction(formData: FormData) {
       AND teacher_id = ${teacher.id}
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -236,6 +242,7 @@ export async function updateSettingsAction(formData: FormData) {
         updated_at = NOW()
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -284,6 +291,7 @@ export async function createStudentAction(formData: FormData) {
       throw error;
     }
 
+    await refreshClassRksSnapshots(classId);
     revalidatePath("/");
     revalidatePath(`/dashboard/classes/${classId}`);
     redirect(
@@ -320,6 +328,7 @@ export async function createStudentAction(formData: FormData) {
         }。`
       : "没有添加新学生，可能这些姓名都已存在。";
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -382,6 +391,7 @@ export async function updateStudentAction(formData: FormData) {
     throw error;
   }
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -402,6 +412,7 @@ export async function deleteStudentAction(formData: FormData) {
       AND class_id IN ${sql(roster.classIds)}
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -446,6 +457,7 @@ export async function createExamAction(formData: FormData) {
     )
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -483,6 +495,7 @@ export async function updateExamAction(formData: FormData) {
       AND class_id = ${classId}
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -504,6 +517,7 @@ export async function deleteExamAction(formData: FormData) {
       AND class_id = ${classId}
   `;
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -637,6 +651,7 @@ export async function saveScoresAction(formData: FormData) {
     }
   });
 
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath(`/dashboard/classes/${classId}`);
   redirect(
@@ -669,7 +684,7 @@ export async function updateClassInlineAction(
         AND teacher_id = ${teacher.id}
     `;
 
-    revalidateClassViews(classId);
+    await revalidateClassViews(classId);
     return "班级信息已保存。";
   });
 }
@@ -705,6 +720,7 @@ export async function createClassInlineAction(
       ON CONFLICT (class_id) DO NOTHING
     `;
 
+    await refreshClassRksSnapshots(classId);
     revalidatePath("/dashboard");
     return "班级已创建。";
   });
@@ -854,7 +870,7 @@ async function saveClassSettings(formData: FormData) {
         updated_at = NOW()
   `;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function createStudentWithoutRedirect(formData: FormData) {
@@ -884,7 +900,7 @@ async function createStudentWithoutRedirect(formData: FormData) {
       VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes})
     `;
 
-    revalidateClassViews(classId);
+    await revalidateClassViews(classId);
     return "学生已加入班级。";
   }
 
@@ -911,7 +927,7 @@ async function createStudentWithoutRedirect(formData: FormData) {
 
   const skippedCount = names.length - insertedCount;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 
   return insertedCount > 0
     ? `已添加 ${insertedCount} 名学生${
@@ -959,7 +975,7 @@ async function updateStudentWithoutRedirect(formData: FormData) {
     throw new Error("没有找到这个共享名单里的学生。");
   }
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function deleteStudentWithoutRedirect(formData: FormData) {
@@ -975,7 +991,7 @@ async function deleteStudentWithoutRedirect(formData: FormData) {
       AND class_id IN ${sql(roster.classIds)}
   `;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function createExamWithoutRedirect(formData: FormData) {
@@ -1013,7 +1029,7 @@ async function createExamWithoutRedirect(formData: FormData) {
     )
   `;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function updateExamWithoutRedirect(formData: FormData) {
@@ -1044,7 +1060,7 @@ async function updateExamWithoutRedirect(formData: FormData) {
       AND class_id = ${classId}
   `;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function deleteExamWithoutRedirect(formData: FormData) {
@@ -1061,7 +1077,7 @@ async function deleteExamWithoutRedirect(formData: FormData) {
       AND class_id = ${classId}
   `;
 
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function saveScoresWithoutRedirect(formData: FormData) {
@@ -1145,7 +1161,7 @@ async function saveScoresWithoutRedirect(formData: FormData) {
   }
 
   await saveScoreChanges(sql, changes, autoClassFirst);
-  revalidateClassViews(classId);
+  await revalidateClassViews(classId);
 }
 
 async function saveScoreChanges(
@@ -1200,7 +1216,8 @@ async function saveScoreChanges(
   });
 }
 
-function revalidateClassViews(classId: number) {
+async function revalidateClassViews(classId: number) {
+  await refreshClassRksSnapshots(classId);
   revalidatePath("/");
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/classes/${classId}`);

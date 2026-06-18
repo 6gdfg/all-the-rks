@@ -37,7 +37,7 @@ export function getSql() {
     globalThis.rksSql = postgres(connectionString, {
       connect_timeout: 10,
       idle_timeout: 20,
-      max: 1,
+      max: 5,
       ssl: isLocal ? false : "require"
     });
   }
@@ -97,6 +97,16 @@ async function migrate() {
   await sql`
     CREATE INDEX IF NOT EXISTS classes_teacher_idx
       ON classes(teacher_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS classes_name_idx
+      ON classes(name)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS classes_subject_idx
+      ON classes(subject)
   `;
 
   await sql`
@@ -245,6 +255,11 @@ async function migrate() {
   `;
 
   await sql`
+    CREATE INDEX IF NOT EXISTS students_class_name_idx
+      ON students(class_id, LOWER(name))
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS exams (
       id SERIAL PRIMARY KEY,
       class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
@@ -316,6 +331,32 @@ async function migrate() {
   await sql`
     CREATE INDEX IF NOT EXISTS scores_exam_idx
       ON scores(exam_id)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS rks_snapshots (
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      student_name TEXT NOT NULL,
+      student_no TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      rks NUMERIC(10, 6) NOT NULL DEFAULT 0,
+      rank INTEGER NOT NULL DEFAULT 0,
+      result_count INTEGER NOT NULL DEFAULT 0,
+      snapshot JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (class_id, student_id)
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS rks_snapshots_class_rank_idx
+      ON rks_snapshots(class_id, rank, rks DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS rks_snapshots_class_name_idx
+      ON rks_snapshots(class_id, LOWER(student_name))
   `;
 
   await sql`

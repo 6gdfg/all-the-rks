@@ -123,6 +123,34 @@ export function PublicSearch({
   }
 
   useEffect(() => {
+    let isMounted = true;
+
+    if (initialData.databaseReady && initialData.leaderboards.length === 0) {
+      fetch("/api/public-leaderboards", {
+        cache: "no-store"
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("排行榜载入失败");
+          }
+
+          return response.json() as Promise<Pick<PublicHomeData, "leaderboards">>;
+        })
+        .then((leaderboardData) => {
+          if (!isMounted) {
+            return;
+          }
+
+          setData((currentData) => ({
+            ...currentData,
+            leaderboards: leaderboardData.leaderboards
+          }));
+        })
+        .catch(() => {
+          // 排行榜不是查询主路径，失败时保持首屏可用。
+        });
+    }
+
     function handlePopState() {
       const params = new URLSearchParams(window.location.search);
       const nextQuery = params.get("q") ?? "";
@@ -137,6 +165,7 @@ export function PublicSearch({
     window.addEventListener("popstate", handlePopState);
 
     return () => {
+      isMounted = false;
       window.removeEventListener("popstate", handlePopState);
       abortRef.current?.abort();
     };
