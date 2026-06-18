@@ -706,10 +706,11 @@ textarea:focus {
 .phigros-score-card {
   --grade-color: #111111;
   --grade-soft: #efefef;
-  --cut-width: 112px;
-  --cut-content-offset: 108px;
-  --grade-column: 78px;
-  --score-gap: 16px;
+  --cut-width: 108px;
+  --cut-content-offset: 122px;
+  --content-pad-x: 14px;
+  --grade-mark-size: 2.12rem;
+  --score-main-size: 1.26rem;
   position: relative;
   min-height: 96px;
   overflow: hidden;
@@ -721,6 +722,10 @@ textarea:focus {
     linear-gradient(112deg, rgba(0, 0, 0, 0.04) 0 9%, transparent 9% 100%),
     linear-gradient(95deg, #ffffff, var(--grade-soft));
   color: var(--ink);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
 }
 
 .phigros-score-card::before {
@@ -769,11 +774,17 @@ textarea:focus {
 }
 
 .phigros-p1-card {
-  --cut-width: 164px;
-  --cut-content-offset: 148px;
-  --grade-column: 112px;
-  --score-gap: 18px;
+  --cut-width: 150px;
+  --cut-content-offset: 166px;
+  --grade-mark-size: 2.72rem;
+  --score-main-size: 1.48rem;
   grid-column: 1 / -1;
+}
+
+.phigros-score-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
 }
 
 .phigros-slot,
@@ -802,7 +813,26 @@ textarea:focus {
 .phigros-card-content {
   display: grid;
   gap: 6px;
-  padding: 12px 14px 10px;
+  min-height: 96px;
+  padding: 12px var(--content-pad-x) 10px;
+}
+
+.phigros-p1-card .phigros-card-content {
+  min-height: 108px;
+}
+
+.phigros-p1-card .phigros-card-mid {
+  min-height: 46px;
+}
+
+.phigros-p1-card .phigros-score-block {
+  grid-template-columns: minmax(0, auto) minmax(64px, 180px) auto;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.phigros-p1-card .phigros-score-line {
+  width: 100%;
 }
 
 .phigros-card-top {
@@ -851,15 +881,23 @@ textarea:focus {
 }
 
 .phigros-card-mid {
+  position: relative;
   display: grid;
-  grid-template-columns: var(--grade-column) minmax(0, 1fr);
-  gap: var(--score-gap);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
+  min-height: 38px;
+  padding-left: var(--cut-content-offset);
 }
 
 .phigros-grade {
+  position: absolute;
+  top: 50%;
+  left: calc(8px - var(--content-pad-x));
+  z-index: 2;
+  width: calc(var(--cut-content-offset) - 18px);
+  transform: translateY(-50%);
   color: var(--grade-color);
-  font-size: 2.2rem;
+  font-size: var(--grade-mark-size);
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -888,17 +926,19 @@ textarea:focus {
 .phigros-score-block {
   display: grid;
   gap: 3px;
+  width: 100%;
   min-width: 0;
 }
 
 .phigros-score-block strong {
   overflow: hidden;
   color: var(--ink);
-  font-size: 1.34rem;
+  font-size: var(--score-main-size);
   font-weight: 850;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .phigros-score-block strong span {
@@ -985,6 +1025,16 @@ textarea:focus {
   border-radius: 8px;
   background: var(--surface-raised);
   padding: 14px;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.poster-placeholder:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
 .poster-placeholder div {
@@ -1006,19 +1056,19 @@ textarea:focus {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: #ffffff;
 }
 
 .rks-poster {
   width: 100%;
-  max-width: 780px;
+  max-width: none;
   min-height: 0;
   overflow: hidden;
   background:
-    linear-gradient(116deg, rgba(0, 0, 0, 0.05) 0 9%, transparent 9% 15%, rgba(0, 0, 0, 0.035) 15% 18%, transparent 18%),
+    linear-gradient(116deg, rgba(0, 0, 0, 0.045) 0 8%, transparent 8% 14%, rgba(0, 0, 0, 0.028) 14% 17%, transparent 17%),
     #ffffff;
   color: var(--ink);
-  padding: 28px;
+  padding: clamp(20px, 3vw, 30px);
 }
 
 .poster-header {
@@ -1129,7 +1179,7 @@ textarea:focus {
 
 .poster-score-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 10px;
 }
 
@@ -1584,6 +1634,23 @@ textarea:focus {
   text-align: center;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .link-button,
+  .primary-button,
+  .ghost-button,
+  .danger-button,
+  .icon-button,
+  .phigros-score-card,
+  .poster-placeholder {
+    transition: none;
+  }
+
+  .phigros-score-card:hover,
+  .poster-placeholder:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 880px) {
   .page-hero,
   .dashboard-header,
@@ -1701,21 +1768,27 @@ textarea:focus {
   }
 
   .phigros-score-card {
-    --cut-width: 104px;
-    --cut-content-offset: 100px;
-    --grade-column: 72px;
-    --score-gap: 14px;
+    --cut-width: 86px;
+    --cut-content-offset: 96px;
+    --grade-mark-size: 1.78rem;
+    --score-main-size: 1.12rem;
+    --content-pad-x: 12px;
   }
 
   .phigros-p1-card {
-    --cut-width: 128px;
-    --cut-content-offset: 116px;
-    --grade-column: 86px;
-    --score-gap: 16px;
+    --cut-width: 102px;
+    --cut-content-offset: 112px;
+    --grade-mark-size: 2.08rem;
+    --score-main-size: 1.18rem;
+  }
+
+  .phigros-p1-card .phigros-score-block {
+    grid-template-columns: 1fr;
+    row-gap: 3px;
   }
 
   .phigros-score-block strong {
-    font-size: 1.32rem;
+    font-size: var(--score-main-size);
   }
 
   .stat-band,
