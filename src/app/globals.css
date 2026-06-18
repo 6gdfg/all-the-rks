@@ -774,10 +774,6 @@ textarea:focus {
 }
 
 .phigros-p1-card {
-  --cut-width: 150px;
-  --cut-content-offset: 166px;
-  --grade-mark-size: 2.72rem;
-  --score-main-size: 1.48rem;
   grid-column: 1 / -1;
 }
 
@@ -815,24 +811,6 @@ textarea:focus {
   gap: 6px;
   min-height: 96px;
   padding: 12px var(--content-pad-x) 10px;
-}
-
-.phigros-p1-card .phigros-card-content {
-  min-height: 108px;
-}
-
-.phigros-p1-card .phigros-card-mid {
-  min-height: 46px;
-}
-
-.phigros-p1-card .phigros-score-block {
-  grid-template-columns: minmax(0, auto) minmax(64px, 180px) auto;
-  align-items: center;
-  column-gap: 12px;
-}
-
-.phigros-p1-card .phigros-score-line {
-  width: 100%;
 }
 
 .phigros-card-top {
@@ -1773,18 +1751,6 @@ textarea:focus {
     --grade-mark-size: 1.78rem;
     --score-main-size: 1.12rem;
     --content-pad-x: 12px;
-  }
-
-  .phigros-p1-card {
-    --cut-width: 102px;
-    --cut-content-offset: 112px;
-    --grade-mark-size: 2.08rem;
-    --score-main-size: 1.18rem;
-  }
-
-  .phigros-p1-card .phigros-score-block {
-    grid-template-columns: 1fr;
-    row-gap: 3px;
   }
 
   .phigros-score-block strong {
