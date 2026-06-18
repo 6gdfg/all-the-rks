@@ -27,6 +27,7 @@ import { requireTeacher } from "@/lib/auth";
 import { getClassDetailById } from "@/lib/data";
 import { EXAM_DIFFICULTIES } from "@/lib/difficulty";
 import { formatDate, formatRks, formatScore, normalizeDateInput } from "@/lib/format";
+import type { RksFormulaMode } from "@/lib/rks";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -54,6 +55,10 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
     detail.scores
       .filter((score) => score.isManualClassFirst)
       .map((score) => [score.examId, score.studentId])
+  );
+  const formulaDescription = getFormulaDescription(
+    detail.settings.rksFormulaMode,
+    detail.settings.rksFormulaExponent
   );
 
   const gridColumns = `minmax(150px, 1.1fr) repeat(${Math.max(
@@ -118,9 +123,9 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               <Settings aria-hidden="true" size={18} /> 展示设置
             </h2>
             <p className="muted">
-              {`控制公开展示和 RKS 公式。当前公式：（p${detail.settings.perfectCount} + b${
+              {`控制公开展示和 RKS 公式。当前汇总：（p${detail.settings.perfectCount} + b${
                 detail.settings.bestCount
-              }）/${detail.settings.perfectCount + detail.settings.bestCount}`}
+              }）/${detail.settings.perfectCount + detail.settings.bestCount}；单次：${formulaDescription}`}
             </p>
           </div>
         </div>
@@ -198,6 +203,53 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               </label>
             </div>
           </div>
+          <div className="segmented-field settings-wide">
+            <span>RKS 单次公式</span>
+            <div className="segmented-control">
+              <label>
+                <input
+                  name="rksFormulaMode"
+                  type="radio"
+                  value="curve"
+                  defaultChecked={detail.settings.rksFormulaMode === "curve"}
+                />
+                <span>考试曲线</span>
+              </label>
+              <label>
+                <input
+                  name="rksFormulaMode"
+                  type="radio"
+                  value="linear"
+                  defaultChecked={detail.settings.rksFormulaMode === "linear"}
+                />
+                <span>线性</span>
+              </label>
+              <label>
+                <input
+                  name="rksFormulaMode"
+                  type="radio"
+                  value="phigros"
+                  defaultChecked={detail.settings.rksFormulaMode === "phigros"}
+                />
+                <span>Phigros</span>
+              </label>
+            </div>
+            <p className="field-hint">
+              默认考试曲线：定数 × 得分率^指数。指数越小，中低分不被压得太狠；指数越大，高分区分更强。
+            </p>
+          </div>
+          <label className="field">
+            <span>曲线指数</span>
+            <input
+              name="rksFormulaExponent"
+              type="number"
+              min={0.1}
+              max={3}
+              step={0.01}
+              defaultValue={detail.settings.rksFormulaExponent}
+            />
+            <small className="field-hint">默认 0.8；仅“考试曲线”模式使用。</small>
+          </label>
           <label className="field">
             <span>p 数量</span>
             <input
@@ -331,7 +383,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
           <div>
             <h2>考试</h2>
             <p className="muted">
-              单次考试 RKS = ((得分率 × 100 - 55) / 45)² × 定数，定数会按 1 位小数保存。
+              单次考试 RKS 当前按“{formulaDescription}”计算，定数会按 1 位小数保存。
             </p>
           </div>
         </div>
@@ -631,6 +683,18 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
       </section>
     </main>
   );
+}
+
+function getFormulaDescription(mode: RksFormulaMode, exponent: number) {
+  if (mode === "linear") {
+    return "定数 × 得分率";
+  }
+
+  if (mode === "phigros") {
+    return "定数 × ((得分率 × 100 - 55) / 45)²";
+  }
+
+  return `定数 × 得分率^${exponent.toFixed(2)}`;
 }
 
 function today() {

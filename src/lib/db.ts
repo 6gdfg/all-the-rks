@@ -108,6 +108,8 @@ async function migrate() {
       public_search_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       query_result_style TEXT NOT NULL DEFAULT 'phigros',
       auto_class_first BOOLEAN NOT NULL DEFAULT TRUE,
+      rks_formula_mode TEXT NOT NULL DEFAULT 'curve',
+      rks_formula_exponent NUMERIC(4, 2) NOT NULL DEFAULT 0.80,
       perfect_count INTEGER NOT NULL DEFAULT 1,
       best_count INTEGER NOT NULL DEFAULT 14,
       leaderboard_limit INTEGER NOT NULL DEFAULT 20,
@@ -136,6 +138,16 @@ async function migrate() {
   `;
 
   await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS rks_formula_mode TEXT NOT NULL DEFAULT 'curve'
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS rks_formula_exponent NUMERIC(4, 2) NOT NULL DEFAULT 0.80
+  `;
+
+  await sql`
     UPDATE class_settings
     SET perfect_count = 1
     WHERE perfect_count IS NULL
@@ -149,6 +161,21 @@ async function migrate() {
     WHERE best_count IS NULL
        OR best_count < 1
        OR best_count > 100
+  `;
+
+  await sql`
+    UPDATE class_settings
+    SET rks_formula_mode = 'curve'
+    WHERE rks_formula_mode IS NULL
+       OR rks_formula_mode NOT IN ('curve', 'linear', 'phigros')
+  `;
+
+  await sql`
+    UPDATE class_settings
+    SET rks_formula_exponent = 0.80
+    WHERE rks_formula_exponent IS NULL
+       OR rks_formula_exponent < 0.10
+       OR rks_formula_exponent > 3.00
   `;
 
   await sql`
@@ -171,6 +198,28 @@ async function migrate() {
     ALTER TABLE class_settings
     ADD CONSTRAINT class_settings_best_count_check
     CHECK (best_count BETWEEN 1 AND 100)
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    DROP CONSTRAINT IF EXISTS class_settings_rks_formula_mode_check
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD CONSTRAINT class_settings_rks_formula_mode_check
+    CHECK (rks_formula_mode IN ('curve', 'linear', 'phigros'))
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    DROP CONSTRAINT IF EXISTS class_settings_rks_formula_exponent_check
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD CONSTRAINT class_settings_rks_formula_exponent_check
+    CHECK (rks_formula_exponent BETWEEN 0.10 AND 3.00)
   `;
 
   await sql`

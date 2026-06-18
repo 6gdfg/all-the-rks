@@ -15,6 +15,12 @@ import {
 import { ensureSchema, getSql } from "./db";
 import { assertClassOwner, getSharedRosterInfoForOwnedClass } from "./data";
 import { normalizeExamDifficulty } from "./difficulty";
+import {
+  DEFAULT_RKS_FORMULA_EXPONENT,
+  DEFAULT_RKS_FORMULA_MODE,
+  normalizeRksFormulaExponent,
+  normalizeRksFormulaMode
+} from "./rks";
 
 type QueryClient = Sql | TransactionSql;
 type InlineActionState = {
@@ -178,6 +184,8 @@ export async function updateSettingsAction(formData: FormData) {
   const queryResultStyle = readQueryResultStyle(formData);
   const perfectCount = clamp(readNumber(formData, "perfectCount", 1), 0, 10);
   const bestCount = clamp(readNumber(formData, "bestCount", 14), 1, 100);
+  const rksFormulaMode = readRksFormulaMode(formData);
+  const rksFormulaExponent = readRksFormulaExponent(formData);
 
   await assertClassOwner(teacher.id, classId);
 
@@ -191,6 +199,8 @@ export async function updateSettingsAction(formData: FormData) {
       public_search_enabled,
       query_result_style,
       auto_class_first,
+      rks_formula_mode,
+      rks_formula_exponent,
       perfect_count,
       best_count,
       leaderboard_limit,
@@ -204,6 +214,8 @@ export async function updateSettingsAction(formData: FormData) {
       ${readCheckbox(formData, "publicSearchEnabled")},
       ${queryResultStyle},
       ${readCheckbox(formData, "autoClassFirst")},
+      ${rksFormulaMode},
+      ${rksFormulaExponent},
       ${Math.floor(perfectCount)},
       ${Math.floor(bestCount)},
       ${leaderboardLimit},
@@ -216,6 +228,8 @@ export async function updateSettingsAction(formData: FormData) {
         public_search_enabled = EXCLUDED.public_search_enabled,
         query_result_style = EXCLUDED.query_result_style,
         auto_class_first = EXCLUDED.auto_class_first,
+        rks_formula_mode = EXCLUDED.rks_formula_mode,
+        rks_formula_exponent = EXCLUDED.rks_formula_exponent,
         perfect_count = EXCLUDED.perfect_count,
         best_count = EXCLUDED.best_count,
         leaderboard_limit = EXCLUDED.leaderboard_limit,
@@ -788,6 +802,8 @@ async function saveClassSettings(formData: FormData) {
   const queryResultStyle = readQueryResultStyle(formData);
   const perfectCount = clamp(readNumber(formData, "perfectCount", 1), 0, 10);
   const bestCount = clamp(readNumber(formData, "bestCount", 14), 1, 100);
+  const rksFormulaMode = readRksFormulaMode(formData);
+  const rksFormulaExponent = readRksFormulaExponent(formData);
 
   await assertClassOwner(teacher.id, classId);
 
@@ -801,6 +817,8 @@ async function saveClassSettings(formData: FormData) {
       public_search_enabled,
       query_result_style,
       auto_class_first,
+      rks_formula_mode,
+      rks_formula_exponent,
       perfect_count,
       best_count,
       leaderboard_limit,
@@ -814,6 +832,8 @@ async function saveClassSettings(formData: FormData) {
       ${readCheckbox(formData, "publicSearchEnabled")},
       ${queryResultStyle},
       ${readCheckbox(formData, "autoClassFirst")},
+      ${rksFormulaMode},
+      ${rksFormulaExponent},
       ${Math.floor(perfectCount)},
       ${Math.floor(bestCount)},
       ${leaderboardLimit},
@@ -826,6 +846,8 @@ async function saveClassSettings(formData: FormData) {
         public_search_enabled = EXCLUDED.public_search_enabled,
         query_result_style = EXCLUDED.query_result_style,
         auto_class_first = EXCLUDED.auto_class_first,
+        rks_formula_mode = EXCLUDED.rks_formula_mode,
+        rks_formula_exponent = EXCLUDED.rks_formula_exponent,
         perfect_count = EXCLUDED.perfect_count,
         best_count = EXCLUDED.best_count,
         leaderboard_limit = EXCLUDED.leaderboard_limit,
@@ -1240,6 +1262,18 @@ function readQueryResultStyle(formData: FormData) {
   }
 
   return "phigros";
+}
+
+function readRksFormulaMode(formData: FormData) {
+  return normalizeRksFormulaMode(
+    String(formData.get("rksFormulaMode") ?? DEFAULT_RKS_FORMULA_MODE)
+  );
+}
+
+function readRksFormulaExponent(formData: FormData) {
+  return normalizeRksFormulaExponent(
+    formData.get("rksFormulaExponent") ?? DEFAULT_RKS_FORMULA_EXPONENT
+  );
 }
 
 function readExamDifficulty(formData: FormData) {

@@ -6,7 +6,12 @@ import { ensureSchema, getSql, hasDatabaseUrl } from "./db";
 import { normalizeExamDifficulty } from "./difficulty";
 import {
   calculateClassRks,
+  DEFAULT_RKS_FORMULA_EXPONENT,
+  DEFAULT_RKS_FORMULA_MODE,
+  normalizeRksFormulaExponent,
+  normalizeRksFormulaMode,
   type ExamRow,
+  type RksFormulaMode,
   type ScoreRow,
   type StudentRks,
   type StudentRow
@@ -19,6 +24,8 @@ export type ClassSettings = {
   publicSearchEnabled: boolean;
   queryResultStyle: QueryResultStyle;
   autoClassFirst: boolean;
+  rksFormulaMode: RksFormulaMode;
+  rksFormulaExponent: number;
   perfectCount: number;
   bestCount: number;
   leaderboardLimit: number;
@@ -99,6 +106,8 @@ type SettingsRecord = {
   publicSearchEnabled: boolean;
   queryResultStyle: string;
   autoClassFirst: boolean;
+  rksFormulaMode: string;
+  rksFormulaExponent: number;
   perfectCount: number;
   bestCount: number;
   leaderboardLimit: number;
@@ -189,7 +198,9 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
     bestCount: settings.bestCount,
-    autoClassFirst: settings.autoClassFirst
+    autoClassFirst: settings.autoClassFirst,
+    formulaMode: settings.rksFormulaMode,
+    formulaExponent: settings.rksFormulaExponent
   });
 
   return {
@@ -324,6 +335,8 @@ async function getPublicLeaderboards() {
       class_settings.public_search_enabled AS "publicSearchEnabled",
       class_settings.query_result_style AS "queryResultStyle",
       class_settings.auto_class_first AS "autoClassFirst",
+      class_settings.rks_formula_mode AS "rksFormulaMode",
+      class_settings.rks_formula_exponent::FLOAT AS "rksFormulaExponent",
       class_settings.perfect_count AS "perfectCount",
       class_settings.best_count AS "bestCount",
       class_settings.leaderboard_limit AS "leaderboardLimit"
@@ -420,7 +433,9 @@ async function getPublicClassBundle(classId: number) {
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
     bestCount: settings.bestCount,
-    autoClassFirst: settings.autoClassFirst
+    autoClassFirst: settings.autoClassFirst,
+    formulaMode: settings.rksFormulaMode,
+    formulaExponent: settings.rksFormulaExponent
   });
 
   return {
@@ -445,6 +460,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       public_search_enabled AS "publicSearchEnabled",
       query_result_style AS "queryResultStyle",
       auto_class_first AS "autoClassFirst",
+      rks_formula_mode AS "rksFormulaMode",
+      rks_formula_exponent::FLOAT AS "rksFormulaExponent",
       perfect_count AS "perfectCount",
       best_count AS "bestCount",
       leaderboard_limit AS "leaderboardLimit"
@@ -463,6 +480,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       publicSearchEnabled: true,
       queryResultStyle: "phigros",
       autoClassFirst: true,
+      rksFormulaMode: DEFAULT_RKS_FORMULA_MODE,
+      rksFormulaExponent: DEFAULT_RKS_FORMULA_EXPONENT,
       perfectCount: 1,
       bestCount: 14,
       leaderboardLimit: 20
@@ -476,6 +495,8 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
     publicSearchEnabled: row.publicSearchEnabled,
     queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
     autoClassFirst: row.autoClassFirst,
+    rksFormulaMode: normalizeRksFormulaMode(row.rksFormulaMode),
+    rksFormulaExponent: normalizeRksFormulaExponent(row.rksFormulaExponent),
     perfectCount: clampInteger(row.perfectCount, 0, 10, 1),
     bestCount: clampInteger(row.bestCount, 1, 100, 14),
     leaderboardLimit: row.leaderboardLimit

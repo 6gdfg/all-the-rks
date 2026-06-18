@@ -56,24 +56,45 @@ export type RksHistoryPoint = {
   rks: number;
 };
 
+export type RksFormulaMode = "curve" | "linear" | "phigros";
+
+export const DEFAULT_RKS_FORMULA_MODE: RksFormulaMode = "curve";
+export const DEFAULT_RKS_FORMULA_EXPONENT = 0.8;
+
 export type RksFormulaConfig = {
   perfectCount: number;
   bestCount: number;
   autoClassFirst: boolean;
+  formulaMode: RksFormulaMode;
+  formulaExponent: number;
 };
 
 export function calculateExamRks(
   score: number,
   totalScore: number,
-  constantValue: number
+  constantValue: number,
+  config: Pick<RksFormulaConfig, "formulaMode" | "formulaExponent"> = {
+    formulaMode: DEFAULT_RKS_FORMULA_MODE,
+    formulaExponent: DEFAULT_RKS_FORMULA_EXPONENT
+  }
 ) {
   if (totalScore <= 0) {
     return 0;
   }
 
-  const acc = score / totalScore;
+  const acc = clamp(score / totalScore, 0, 1);
+  const mode = normalizeRksFormulaMode(config.formulaMode);
+  const exponent = normalizeRksFormulaExponent(config.formulaExponent);
 
-  return ((acc * 100 - 55) / 45) ** 2 * constantValue;
+  if (mode === "linear") {
+    return acc * constantValue;
+  }
+
+  if (mode === "phigros") {
+    return ((acc * 100 - 55) / 45) ** 2 * constantValue;
+  }
+
+  return acc ** exponent * constantValue;
 }
 
 export function calculateClassRks(
@@ -83,12 +104,16 @@ export function calculateClassRks(
   config: RksFormulaConfig = {
     perfectCount: 1,
     bestCount: 14,
-    autoClassFirst: true
+    autoClassFirst: true,
+    formulaMode: DEFAULT_RKS_FORMULA_MODE,
+    formulaExponent: DEFAULT_RKS_FORMULA_EXPONENT
   }
 ) {
   const perfectCount = Math.max(0, Math.floor(config.perfectCount));
   const bestCount = Math.max(1, Math.floor(config.bestCount));
   const autoClassFirst = config.autoClassFirst;
+  const formulaMode = normalizeRksFormulaMode(config.formulaMode);
+  const formulaExponent = normalizeRksFormulaExponent(config.formulaExponent);
   const divisor = Math.max(1, perfectCount + bestCount);
   const examsById = new Map(exams.map((exam) => [exam.id, exam]));
   const maxScoreByExam = new Map<number, number>();
@@ -113,7 +138,11 @@ export function calculateClassRks(
     const examRks = calculateExamRks(
       item.score,
       exam.totalScore,
-      exam.constantValue
+      exam.constantValue,
+      {
+        formulaMode,
+        formulaExponent
+      }
     );
 
     const result: ExamResult = {
@@ -174,6 +203,28 @@ export function calculateClassRks(
   });
 
   return ranked;
+}
+
+export function normalizeRksFormulaMode(value: unknown): RksFormulaMode {
+  if (value === "linear" || value === "phigros") {
+    return value;
+  }
+
+  return DEFAULT_RKS_FORMULA_MODE;
+}
+
+export function normalizeRksFormulaExponent(value: unknown) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return DEFAULT_RKS_FORMULA_EXPONENT;
+  }
+
+  return Math.round(clamp(number, 0.1, 3) * 100) / 100;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function sortResultByDateDesc(a: ExamResult, b: ExamResult) {
