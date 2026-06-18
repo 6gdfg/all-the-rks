@@ -163,6 +163,27 @@ svg {
   color: white;
 }
 
+.primary-button,
+.primary-button *,
+button[data-variant="primary"],
+button[data-variant="primary"] *,
+a[data-variant="primary"],
+a[data-variant="primary"] *,
+button[class*="bg-kumo-brand"],
+button[class*="bg-kumo-brand"] *,
+a[class*="bg-kumo-brand"],
+a[class*="bg-kumo-brand"] *,
+.primary-action,
+.primary-action * {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+
+button[class*="bg-kumo-brand"]:disabled,
+button[class*="bg-kumo-brand"][aria-disabled="true"] {
+  opacity: 1;
+}
+
 .primary-button:hover {
   background: #303030;
 }
@@ -1168,6 +1189,24 @@ textarea:focus {
   align-items: end;
 }
 
+.toolbar-switch {
+  min-height: 38px;
+}
+
+.inline-action-status {
+  grid-column: 1 / -1;
+  min-height: 20px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.inline-action-status-error {
+  color: var(--ink);
+}
+
 .exam-create-form {
   display: grid;
   grid-template-columns: minmax(170px, 1.1fr) 92px minmax(140px, 0.75fr) minmax(105px, 0.55fr) minmax(105px, 0.55fr) auto;
@@ -1382,6 +1421,38 @@ textarea:focus {
 .score-cell input {
   min-height: 34px;
   padding: 6px 8px;
+}
+
+.score-entry {
+  display: grid;
+  gap: 6px;
+}
+
+.manual-first-none,
+.manual-first-option {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.manual-first-none {
+  margin-top: 6px;
+}
+
+.manual-first-none input,
+.manual-first-option input {
+  width: 14px;
+  min-height: 14px;
+  accent-color: var(--ink);
+}
+
+.manual-first-option:has(input:checked) {
+  color: var(--ink);
 }
 
 .rank-table {

@@ -18,6 +18,7 @@ export type ClassSettings = {
   showExamScores: boolean;
   publicSearchEnabled: boolean;
   queryResultStyle: QueryResultStyle;
+  autoClassFirst: boolean;
   perfectCount: number;
   bestCount: number;
   leaderboardLimit: number;
@@ -97,6 +98,7 @@ type SettingsRecord = {
   showExamScores: boolean;
   publicSearchEnabled: boolean;
   queryResultStyle: string;
+  autoClassFirst: boolean;
   perfectCount: number;
   bestCount: number;
   leaderboardLimit: number;
@@ -186,7 +188,8 @@ export async function getClassDetailById(teacherId: number, classId: number) {
   const scores = await getScores(classId, sharedClassIds);
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
-    bestCount: settings.bestCount
+    bestCount: settings.bestCount,
+    autoClassFirst: settings.autoClassFirst
   });
 
   return {
@@ -320,6 +323,7 @@ async function getPublicLeaderboards() {
       class_settings.show_exam_scores AS "showExamScores",
       class_settings.public_search_enabled AS "publicSearchEnabled",
       class_settings.query_result_style AS "queryResultStyle",
+      class_settings.auto_class_first AS "autoClassFirst",
       class_settings.perfect_count AS "perfectCount",
       class_settings.best_count AS "bestCount",
       class_settings.leaderboard_limit AS "leaderboardLimit"
@@ -415,7 +419,8 @@ async function getPublicClassBundle(classId: number) {
   const scores = await getScores(classId, sharedClassIds);
   const rankings = calculateClassRks(students, exams, scores, {
     perfectCount: settings.perfectCount,
-    bestCount: settings.bestCount
+    bestCount: settings.bestCount,
+    autoClassFirst: settings.autoClassFirst
   });
 
   return {
@@ -439,6 +444,7 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       show_exam_scores AS "showExamScores",
       public_search_enabled AS "publicSearchEnabled",
       query_result_style AS "queryResultStyle",
+      auto_class_first AS "autoClassFirst",
       perfect_count AS "perfectCount",
       best_count AS "bestCount",
       leaderboard_limit AS "leaderboardLimit"
@@ -456,6 +462,7 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
       showExamScores: true,
       publicSearchEnabled: true,
       queryResultStyle: "phigros",
+      autoClassFirst: true,
       perfectCount: 1,
       bestCount: 14,
       leaderboardLimit: 20
@@ -468,6 +475,7 @@ async function getClassSettings(classId: number): Promise<ClassSettings> {
     showExamScores: row.showExamScores,
     publicSearchEnabled: row.publicSearchEnabled,
     queryResultStyle: normalizeQueryResultStyle(row.queryResultStyle),
+    autoClassFirst: row.autoClassFirst,
     perfectCount: clampInteger(row.perfectCount, 0, 10, 1),
     bestCount: clampInteger(row.bestCount, 1, 100, 14),
     leaderboardLimit: row.leaderboardLimit
@@ -582,7 +590,8 @@ async function getScores(classId: number, rosterClassIds: number[]) {
     SELECT
       scores.student_id AS "studentId",
       scores.exam_id AS "examId",
-      scores.score::FLOAT AS score
+      scores.score::FLOAT AS score,
+      scores.is_manual_class_first AS "isManualClassFirst"
     FROM scores
     INNER JOIN students ON students.id = scores.student_id
     INNER JOIN exams ON exams.id = scores.exam_id
@@ -594,6 +603,7 @@ async function getScores(classId: number, rosterClassIds: number[]) {
   return rows.map((row) => ({
     studentId: Number(row.studentId),
     examId: Number(row.examId),
-    score: Number(row.score)
+    score: Number(row.score),
+    isManualClassFirst: row.isManualClassFirst
   }));
 }

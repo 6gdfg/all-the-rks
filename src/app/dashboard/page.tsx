@@ -1,9 +1,10 @@
 import { LogOut, Plus, Settings } from "lucide-react";
 import { Button, LinkButton } from "@cloudflare/kumo/components/button";
 
+import { AsyncActionForm } from "@/components/AsyncActionForm";
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { Notice } from "@/components/Notice";
-import { createClassAction, logoutTeacherAction } from "@/lib/actions";
+import { createClassInlineAction, logoutTeacherAction } from "@/lib/actions";
 import { requireTeacher } from "@/lib/auth";
 import { getTeacherDashboard } from "@/lib/data";
 import { formatRks } from "@/lib/format";
@@ -46,7 +47,11 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
       {!dashboard.databaseReady ? <DatabaseSetup /> : null}
 
       <section className="toolbar-panel" style={{ marginBottom: 18 }}>
-        <form className="toolbar-form" action={createClassAction}>
+        <AsyncActionForm
+          className="toolbar-form"
+          action={createClassInlineAction}
+          resetOnSuccess
+        >
           <label className="field">
             <span>班级名称</span>
             <input name="name" placeholder="例如：高二 3 班" required />
@@ -55,11 +60,15 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
             <span>学科</span>
             <input name="subject" placeholder="例如：数学" defaultValue="学科" />
           </label>
+          <label className="switch toolbar-switch">
+            <input name="autoClassFirst" type="checkbox" defaultChecked />
+            <span>自动识别班级第一</span>
+          </label>
           <Button variant="primary" type="submit">
             <Plus aria-hidden="true" size={17} />
             创建班级
           </Button>
-        </form>
+        </AsyncActionForm>
       </section>
 
       {dashboard.classes.length > 0 ? (

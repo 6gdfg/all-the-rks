@@ -107,6 +107,7 @@ async function migrate() {
       show_exam_scores BOOLEAN NOT NULL DEFAULT TRUE,
       public_search_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       query_result_style TEXT NOT NULL DEFAULT 'phigros',
+      auto_class_first BOOLEAN NOT NULL DEFAULT TRUE,
       perfect_count INTEGER NOT NULL DEFAULT 1,
       best_count INTEGER NOT NULL DEFAULT 14,
       leaderboard_limit INTEGER NOT NULL DEFAULT 20,
@@ -127,6 +128,11 @@ async function migrate() {
   await sql`
     ALTER TABLE class_settings
     ADD COLUMN IF NOT EXISTS best_count INTEGER NOT NULL DEFAULT 14
+  `;
+
+  await sql`
+    ALTER TABLE class_settings
+    ADD COLUMN IF NOT EXISTS auto_class_first BOOLEAN NOT NULL DEFAULT TRUE
   `;
 
   await sql`
@@ -246,10 +252,16 @@ async function migrate() {
       student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
       exam_id INTEGER NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
       score NUMERIC(8, 2) NOT NULL CHECK (score >= 0),
+      is_manual_class_first BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(student_id, exam_id)
     )
+  `;
+
+  await sql`
+    ALTER TABLE scores
+    ADD COLUMN IF NOT EXISTS is_manual_class_first BOOLEAN NOT NULL DEFAULT FALSE
   `;
 
   await sql`

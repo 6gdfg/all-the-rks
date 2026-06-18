@@ -9,13 +9,17 @@ type ConfirmDeleteButtonProps = {
   message: string;
   compact?: boolean;
   formAction?: (formData: FormData) => void | Promise<void>;
+  name?: string;
+  value?: string;
 };
 
 export function ConfirmDeleteButton({
   label,
   message,
   compact = false,
-  formAction
+  formAction,
+  name,
+  value
 }: ConfirmDeleteButtonProps) {
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     if (!window.confirm(message)) {
@@ -31,7 +35,9 @@ export function ConfirmDeleteButton({
         size="base"
         type="submit"
         formAction={formAction}
+        name={name}
         variant="secondary-destructive"
+        value={value}
         title={label}
         onClick={handleClick}
       >
@@ -45,7 +51,9 @@ export function ConfirmDeleteButton({
       size="base"
       type="submit"
       formAction={formAction}
+      name={name}
       variant="secondary-destructive"
+      value={value}
       title={label}
       onClick={handleClick}
     >

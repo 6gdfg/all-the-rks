@@ -8,21 +8,20 @@ import {
 } from "lucide-react";
 import { Button, LinkButton } from "@cloudflare/kumo/components/button";
 
+import { AsyncActionForm } from "@/components/AsyncActionForm";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { Notice } from "@/components/Notice";
 import { PhigrosScoreCard } from "@/components/PhigrosScoreCard";
 import { RksSparkline } from "@/components/RksSparkline";
 import {
-  createExamAction,
-  createStudentAction,
   deleteClassAction,
-  deleteExamAction,
-  deleteStudentAction,
-  saveScoresAction,
-  updateClassAction,
-  updateExamAction,
-  updateSettingsAction,
-  updateStudentAction
+  createExamInlineAction,
+  createStudentInlineAction,
+  examRowInlineAction,
+  saveScoresInlineAction,
+  studentRowInlineAction,
+  updateClassInlineAction,
+  updateSettingsInlineAction
 } from "@/lib/actions";
 import { requireTeacher } from "@/lib/auth";
 import { getClassDetailById } from "@/lib/data";
@@ -50,6 +49,11 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
   const detail = await getClassDetailById(teacher.id, classId);
   const scoreMap = new Map(
     detail.scores.map((score) => [`${score.studentId}:${score.examId}`, score.score])
+  );
+  const manualFirstByExam = new Map(
+    detail.scores
+      .filter((score) => score.isManualClassFirst)
+      .map((score) => [score.examId, score.studentId])
   );
 
   const gridColumns = `minmax(150px, 1.1fr) repeat(${Math.max(
@@ -87,7 +91,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
           </form>
         </div>
 
-        <form className="grid-3" action={updateClassAction}>
+        <AsyncActionForm className="grid-3" action={updateClassInlineAction}>
           <input type="hidden" name="classId" value={detail.id} />
           <label className="field">
             <span>班级名称</span>
@@ -104,7 +108,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               保存班级信息
             </Button>
           </div>
-        </form>
+        </AsyncActionForm>
       </section>
 
       <section className="panel">
@@ -120,7 +124,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             </p>
           </div>
         </div>
-        <form className="settings-grid" action={updateSettingsAction}>
+        <AsyncActionForm className="settings-grid" action={updateSettingsInlineAction}>
           <input type="hidden" name="classId" value={detail.id} />
           <label className="switch">
             <input
@@ -153,6 +157,14 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               defaultChecked={detail.settings.showExamScores}
             />
             <span>学生查询时显示每次考试成绩和单次 RKS</span>
+          </label>
+          <label className="switch">
+            <input
+              name="autoClassFirst"
+              type="checkbox"
+              defaultChecked={detail.settings.autoClassFirst}
+            />
+            <span>自动识别每次考试班级第一</span>
           </label>
           <div className="segmented-field">
             <span>学生查询样式</span>
@@ -225,7 +237,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               保存展示设置
             </Button>
           </div>
-        </form>
+        </AsyncActionForm>
       </section>
 
       <section className="panel">
@@ -238,9 +250,10 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
           </div>
         </div>
 
-        <form
+        <AsyncActionForm
           className="student-create-form"
-          action={createStudentAction}
+          action={createStudentInlineAction}
+          resetOnSuccess
           style={{ marginBottom: 14 }}
         >
           <input type="hidden" name="classId" value={detail.id} />
@@ -263,7 +276,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               加入学生
             </Button>
           </div>
-        </form>
+        </AsyncActionForm>
         <p className="muted" style={{ marginBottom: 14 }}>
           多个姓名可用逗号分隔一键添加；批量添加时会忽略学号和备注。
         </p>
@@ -277,9 +290,9 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               <span>操作</span>
             </div>
             {detail.students.map((student) => (
-              <form
+              <AsyncActionForm
                 className="editor-row student-row"
-                action={updateStudentAction}
+                action={studentRowInlineAction}
                 key={student.id}
               >
                 <input type="hidden" name="classId" value={detail.id} />
@@ -301,10 +314,11 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                     compact
                     label="删除学生"
                     message={`确定删除学生「${student.name}」吗？相关成绩也会删除。`}
-                    formAction={deleteStudentAction}
+                    name="intent"
+                    value="delete"
                   />
                 </div>
-              </form>
+              </AsyncActionForm>
             ))}
           </div>
         ) : (
@@ -317,12 +331,17 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
           <div>
             <h2>考试</h2>
             <p className="muted">
-              单次考试 RKS = 得分 / 总分 * 定数，定数会按 1 位小数保存。
+              单次考试 RKS = ((得分率 × 100 - 55) / 45)² × 定数，定数会按 1 位小数保存。
             </p>
           </div>
         </div>
 
-        <form className="exam-create-form" action={createExamAction} style={{ marginBottom: 14 }}>
+        <AsyncActionForm
+          className="exam-create-form"
+          action={createExamInlineAction}
+          resetOnSuccess
+          style={{ marginBottom: 14 }}
+        >
           <input type="hidden" name="classId" value={detail.id} />
           <label className="field">
             <span>考试名称</span>
@@ -360,7 +379,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             <Plus aria-hidden="true" size={17} />
             创建考试
           </Button>
-        </form>
+        </AsyncActionForm>
 
         {detail.exams.length > 0 ? (
           <div className="table-list">
@@ -373,7 +392,11 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               <span>操作</span>
             </div>
             {detail.exams.map((exam) => (
-              <form className="editor-row exam-row" action={updateExamAction} key={exam.id}>
+              <AsyncActionForm
+                className="editor-row exam-row"
+                action={examRowInlineAction}
+                key={exam.id}
+              >
                 <input type="hidden" name="classId" value={detail.id} />
                 <input type="hidden" name="examId" value={exam.id} />
                 <input name="name" defaultValue={exam.name} required />
@@ -417,10 +440,11 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                     compact
                     label="删除考试"
                     message={`确定删除考试「${exam.name}」吗？相关成绩也会删除。`}
-                    formAction={deleteExamAction}
+                    name="intent"
+                    value="delete"
                   />
                 </div>
-              </form>
+              </AsyncActionForm>
             ))}
           </div>
         ) : (
@@ -432,12 +456,16 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
         <div className="panel-header">
           <div>
             <h2>成绩矩阵</h2>
-            <p className="muted">空白表示未参加或未录入；保存后 RKS 自动重新计算。</p>
+            <p className="muted">
+              {detail.settings.autoClassFirst
+                ? "空白表示未参加或未录入；系统会自动把每次考试最高分识别为 p。"
+                : "空白表示未参加或未录入；每次考试可手动选择一个 p。"}
+            </p>
           </div>
         </div>
 
         {detail.students.length > 0 && detail.exams.length > 0 ? (
-          <form action={saveScoresAction}>
+          <AsyncActionForm action={saveScoresInlineAction}>
             <input type="hidden" name="classId" value={detail.id} />
             <div className="score-scroll">
               <div className="score-grid" style={{ gridTemplateColumns: gridColumns }}>
@@ -455,6 +483,17 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                       {formatDate(exam.examDate)} · {formatScore(exam.totalScore)} 分 ·{" "}
                       {exam.constantValue.toFixed(1)}
                     </span>
+                    {!detail.settings.autoClassFirst ? (
+                      <label className="manual-first-none">
+                        <input
+                          type="radio"
+                          name={`manualFirst_${exam.id}`}
+                          value=""
+                          defaultChecked={!manualFirstByExam.has(exam.id)}
+                        />
+                        无 p
+                      </label>
+                    ) : null}
                   </div>
                 ))}
 
@@ -468,19 +507,34 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                     </div>
                     {detail.exams.map((exam) => (
                       <div className="score-cell" key={`${student.id}-${exam.id}`}>
-                        <input
-                          name={`score_${student.id}_${exam.id}`}
-                          type="number"
-                          min={0}
-                          max={exam.totalScore}
-                          step="0.01"
-                          defaultValue={
-                            scoreMap.has(`${student.id}:${exam.id}`)
-                              ? formatScore(scoreMap.get(`${student.id}:${exam.id}`) ?? 0)
-                              : ""
-                          }
-                          aria-label={`${student.name} ${exam.difficulty} ${exam.name} 成绩`}
-                        />
+                        <div className="score-entry">
+                          <input
+                            name={`score_${student.id}_${exam.id}`}
+                            type="number"
+                            min={0}
+                            max={exam.totalScore}
+                            step="0.01"
+                            defaultValue={
+                              scoreMap.has(`${student.id}:${exam.id}`)
+                                ? formatScore(scoreMap.get(`${student.id}:${exam.id}`) ?? 0)
+                                : ""
+                            }
+                            aria-label={`${student.name} ${exam.difficulty} ${exam.name} 成绩`}
+                          />
+                          {!detail.settings.autoClassFirst ? (
+                            <label className="manual-first-option">
+                              <input
+                                type="radio"
+                                name={`manualFirst_${exam.id}`}
+                                value={student.id}
+                                defaultChecked={
+                                  manualFirstByExam.get(exam.id) === student.id
+                                }
+                              />
+                              p
+                            </label>
+                          ) : null}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -493,7 +547,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 保存全部成绩
               </Button>
             </div>
-          </form>
+          </AsyncActionForm>
         ) : (
           <div className="empty-state">至少需要 1 名学生和 1 次考试才能录入成绩。</div>
         )}

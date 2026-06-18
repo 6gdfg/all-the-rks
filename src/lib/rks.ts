@@ -20,6 +20,7 @@ export type ScoreRow = {
   studentId: number;
   examId: number;
   score: number;
+  isManualClassFirst: boolean;
 };
 
 export type ExamResult = {
@@ -58,6 +59,7 @@ export type RksHistoryPoint = {
 export type RksFormulaConfig = {
   perfectCount: number;
   bestCount: number;
+  autoClassFirst: boolean;
 };
 
 export function calculateExamRks(
@@ -69,17 +71,24 @@ export function calculateExamRks(
     return 0;
   }
 
-  return (score / totalScore) * constantValue;
+  const acc = score / totalScore;
+
+  return ((acc * 100 - 55) / 45) ** 2 * constantValue;
 }
 
 export function calculateClassRks(
   students: StudentRow[],
   exams: ExamRow[],
   scores: ScoreRow[],
-  config: RksFormulaConfig = { perfectCount: 1, bestCount: 14 }
+  config: RksFormulaConfig = {
+    perfectCount: 1,
+    bestCount: 14,
+    autoClassFirst: true
+  }
 ) {
   const perfectCount = Math.max(0, Math.floor(config.perfectCount));
   const bestCount = Math.max(1, Math.floor(config.bestCount));
+  const autoClassFirst = config.autoClassFirst;
   const divisor = Math.max(1, perfectCount + bestCount);
   const examsById = new Map(exams.map((exam) => [exam.id, exam]));
   const maxScoreByExam = new Map<number, number>();
@@ -116,7 +125,9 @@ export function calculateClassRks(
       totalScore: exam.totalScore,
       constantValue: exam.constantValue,
       examRks,
-      isClassFirst: item.score === maxScoreByExam.get(item.examId)
+      isClassFirst: autoClassFirst
+        ? item.score === maxScoreByExam.get(item.examId)
+        : item.isManualClassFirst
     };
 
     const previous = resultsByStudent.get(item.studentId) ?? [];
