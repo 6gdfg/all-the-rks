@@ -944,7 +944,7 @@ textarea:focus {
   padding-left: var(--cut-content-offset);
 }
 
-.phigros-card-bottom span {
+.phigros-card-bottom > span {
   max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -970,15 +970,37 @@ textarea:focus {
   line-height: 1;
 }
 
-.difficulty-at {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: white;
+.difficulty-ez,
+select[name="difficulty"]:has(option[value="EZ"]:checked),
+select[name="difficulty"] option[value="EZ"] {
+  color: #18a058;
 }
 
-.difficulty-in {
-  border-color: #999999;
-  background: #f4f4f4;
+.difficulty-hd,
+select[name="difficulty"]:has(option[value="HD"]:checked),
+select[name="difficulty"] option[value="HD"] {
+  color: #1677c9;
+}
+
+.difficulty-in,
+select[name="difficulty"]:has(option[value="IN"]:checked),
+select[name="difficulty"] option[value="IN"] {
+  color: #d93025;
+}
+
+.difficulty-at {
+  border-color: var(--line-strong);
+  background: white;
+}
+
+.difficulty-at,
+select[name="difficulty"]:has(option[value="AT"]:checked),
+select[name="difficulty"] option[value="AT"] {
+  color: #111111;
+}
+
+.difficulty-text {
+  font-weight: 900;
 }
 
 .poster-shell {

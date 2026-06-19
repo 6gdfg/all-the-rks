@@ -453,7 +453,10 @@ function SimpleScoreRow({
           {label}
         </strong>
         <span>
-          {item.difficulty} · {formatDate(item.examDate)} · {item.examName}
+          <span className={`difficulty-text difficulty-${item.difficulty.toLowerCase()}`}>
+            {item.difficulty}
+          </span>{" "}
+          · {formatDate(item.examDate)} · {item.examName}
         </span>
       </span>
       <strong>

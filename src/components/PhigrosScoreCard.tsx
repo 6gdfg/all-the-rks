@@ -31,8 +31,8 @@ export function PhigrosScoreCard({
   const grade = getScoreGrade(score, totalScore);
   const rksLine =
     constantValue !== undefined
-      ? `${difficulty} ${constantValue.toFixed(1)} → ${formatRks(examRks)}`
-      : `${difficulty} → ${formatRks(examRks)}`;
+      ? `${constantValue.toFixed(1)} → ${formatRks(examRks)}`
+      : `→ ${formatRks(examRks)}`;
 
   return (
     <article className={`phigros-score-card grade-${grade.key}${className ? ` ${className}` : ""}`}>
@@ -59,7 +59,12 @@ export function PhigrosScoreCard({
           </div>
         </div>
         <div className="phigros-card-bottom">
-          <span>{rksLine}</span>
+          <span>
+            <span className={`difficulty-text difficulty-${difficulty.toLowerCase()}`}>
+              {difficulty}
+            </span>{" "}
+            {rksLine}
+          </span>
           {isClassFirst ? <span>班级第一</span> : null}
         </div>
       </div>
