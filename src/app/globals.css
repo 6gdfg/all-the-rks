@@ -706,10 +706,10 @@ textarea:focus {
 .phigros-score-card {
   --grade-color: #111111;
   --grade-soft: #efefef;
-  --cut-width: 108px;
-  --cut-content-offset: 122px;
+  --cut-width: 116px;
+  --cut-content-offset: 128px;
   --content-pad-x: 14px;
-  --grade-mark-size: 2.12rem;
+  --grade-mark-size: 2.55rem;
   --score-main-size: 1.26rem;
   position: relative;
   min-height: 96px;
@@ -745,8 +745,10 @@ textarea:focus {
   inset: 0 auto 0 0;
   z-index: 0;
   width: var(--cut-width);
-  background: #111111;
-  clip-path: polygon(0 0, 100% 0, 72% 100%, 0 100%);
+  background:
+    linear-gradient(135deg, #050505 0 72%, #181818 72% 100%);
+  box-shadow: 18px 0 22px rgba(0, 0, 0, 0.08);
+  clip-path: polygon(0 0, 100% 0, 76% 100%, 0 100%);
 }
 
 .phigros-score-card.grade-phi {
@@ -870,23 +872,47 @@ textarea:focus {
 .phigros-grade {
   position: absolute;
   top: 50%;
-  left: calc(8px - var(--content-pad-x));
+  left: calc(4px - var(--content-pad-x));
   z-index: 2;
-  width: calc(var(--cut-content-offset) - 18px);
+  width: calc(var(--cut-content-offset) - 20px);
   transform: translateY(-50%);
   color: var(--grade-color);
   font-size: var(--grade-mark-size);
-  font-weight: 900;
+  font-weight: 950;
+  letter-spacing: 0;
   line-height: 1;
   text-align: center;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.24),
+    0 0 18px rgba(255, 255, 255, 0.22);
 }
 
 .grade-mark-phi {
-  color: #d7a918;
+  display: grid;
+  place-items: center;
+  color: #e3bf22;
+  text-shadow: none;
+}
+
+.phi-grade-symbol {
+  width: 54px;
+  height: 64px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 5px rgba(227, 191, 34, 0.72))
+    drop-shadow(0 0 14px rgba(207, 226, 58, 0.36));
 }
 
 .grade-mark-blue-v {
   color: #1677c9;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.28),
+    0 0 18px rgba(22, 119, 201, 0.38);
 }
 
 .grade-mark-white-v {
@@ -1768,9 +1794,9 @@ select[name="difficulty"] option[value="AT"] {
   }
 
   .phigros-score-card {
-    --cut-width: 86px;
-    --cut-content-offset: 96px;
-    --grade-mark-size: 1.78rem;
+    --cut-width: 94px;
+    --cut-content-offset: 104px;
+    --grade-mark-size: 2.05rem;
     --score-main-size: 1.12rem;
     --content-pad-x: 12px;
   }

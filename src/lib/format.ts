@@ -17,10 +17,11 @@ export function formatDate(value: string | Date) {
     return "";
   }
 
-  return date.toLocaleDateString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit"
-  });
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1);
+  const day = String(date.getDate());
+
+  return `${year}/${month}/${day}`;
 }
 
 export function normalizeDateInput(value: string | Date) {
