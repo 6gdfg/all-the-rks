@@ -59,11 +59,11 @@ export function PhigrosScoreCard({
           </div>
         </div>
         <div className="phigros-card-bottom">
-          <span>
+          <span className="exam-rks-pill">
             <span className={`difficulty-text difficulty-${difficulty.toLowerCase()}`}>
               {difficulty}
             </span>{" "}
-            {rksLine}
+            <span className="exam-rks-value">{rksLine}</span>
           </span>
           {isClassFirst ? <span>班级第一</span> : null}
         </div>

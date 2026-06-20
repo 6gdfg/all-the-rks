@@ -953,16 +953,33 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  align-items: flex-start;
   padding-left: var(--cut-content-offset);
 }
 
 .phigros-card-bottom > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
   padding: 2px 7px;
-  overflow-wrap: anywhere;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.exam-rks-pill {
+  flex: 0 0 auto;
+  max-width: none;
+  font-variant-numeric: tabular-nums;
+  word-break: keep-all;
+}
+
+.exam-rks-value {
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .difficulty-pill {
