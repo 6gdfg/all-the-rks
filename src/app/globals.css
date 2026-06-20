@@ -888,24 +888,10 @@ textarea:focus {
 }
 
 .grade-mark-phi {
-  display: grid;
-  place-items: center;
-  color: #e3bf22;
-  text-shadow: none;
-}
-
-.phi-grade-symbol {
-  width: 54px;
-  height: 64px;
-  overflow: visible;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 12;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter:
-    drop-shadow(0 0 5px rgba(227, 191, 34, 0.72))
-    drop-shadow(0 0 14px rgba(207, 226, 58, 0.36));
+  color: #d7a918;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.32),
+    0 0 18px rgba(215, 169, 24, 0.42);
 }
 
 .grade-mark-blue-v {

@@ -1,6 +1,7 @@
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { PublicSearch } from "@/components/PublicSearch";
-import { getPublicHomeData } from "@/lib/data";
+import { getPublicHomeData, type PublicHomeData } from "@/lib/data";
+import { hasDatabaseUrl } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,9 +17,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const query = params.q ?? "";
   const selectedSubjects = normalizeSelectedSubjects(params.subject);
-  const data = await getPublicHomeData(query, selectedSubjects, {
-    includeLeaderboards: false
-  });
+  const shouldLoadServerData = query.trim().length > 0 || selectedSubjects.length > 0;
+  const data = shouldLoadServerData
+    ? await getPublicHomeData(query, selectedSubjects, {
+        includeLeaderboards: false
+      })
+    : getFastInitialPublicData();
 
   return (
     <main>
@@ -59,6 +63,15 @@ export default async function Home({ searchParams }: HomeProps) {
       />
     </main>
   );
+}
+
+function getFastInitialPublicData(): PublicHomeData {
+  return {
+    databaseReady: hasDatabaseUrl(),
+    subjectOptions: [],
+    leaderboards: [],
+    results: []
+  };
 }
 
 function normalizeSelectedSubjects(value: string | string[] | undefined) {

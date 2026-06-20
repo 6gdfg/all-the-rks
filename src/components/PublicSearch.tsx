@@ -125,6 +125,33 @@ export function PublicSearch({
   useEffect(() => {
     let isMounted = true;
 
+    if (initialData.databaseReady && initialData.subjectOptions.length === 0) {
+      fetch("/api/public-search", {
+        cache: "no-store"
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("瀛︾杞藉叆澶辫触");
+          }
+
+          return response.json() as Promise<PublicHomeData>;
+        })
+        .then((nextData) => {
+          if (!isMounted) {
+            return;
+          }
+
+          setData((currentData) => ({
+            ...currentData,
+            databaseReady: nextData.databaseReady,
+            subjectOptions: nextData.subjectOptions
+          }));
+        })
+        .catch(() => {
+          // Subject filters are secondary; keep first paint and search usable.
+        });
+    }
+
     if (initialData.databaseReady && initialData.leaderboards.length === 0) {
       fetch("/api/public-leaderboards", {
         cache: "no-store"

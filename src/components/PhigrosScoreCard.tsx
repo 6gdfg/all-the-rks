@@ -43,7 +43,12 @@ export function PhigrosScoreCard({
           <span>{formatDate(examDate)}</span>
         </div>
         <div className="phigros-card-mid">
-          <GradeMark grade={grade} />
+          <span
+            className={`phigros-grade grade-mark-${grade.key}`}
+            aria-label={grade.name}
+          >
+            {grade.key === "phi" ? "φ" : grade.label}
+          </span>
           <div className="phigros-score-block">
             <strong>
               {formatScore(score)}
@@ -64,30 +69,5 @@ export function PhigrosScoreCard({
         </div>
       </div>
     </article>
-  );
-}
-
-type GradeMarkProps = {
-  grade: ReturnType<typeof getScoreGrade>;
-};
-
-function GradeMark({ grade }: GradeMarkProps) {
-  if (grade.key === "phi") {
-    return (
-      <span className="phigros-grade grade-mark-phi" aria-label={grade.name}>
-        <svg className="phi-grade-symbol" viewBox="0 0 100 120" aria-hidden="true">
-          <g>
-            <ellipse cx="50" cy="62" rx="31" ry="34" />
-            <path d="M50 12V108" />
-          </g>
-        </svg>
-      </span>
-    );
-  }
-
-  return (
-    <span className={`phigros-grade grade-mark-${grade.key}`} aria-label={grade.name}>
-      {grade.label}
-    </span>
   );
 }

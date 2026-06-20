@@ -51,10 +51,103 @@ export async function ensureSchema() {
   }
 
   if (!globalThis.rksSchemaReady) {
-    globalThis.rksSchemaReady = migrate();
+    globalThis.rksSchemaReady = prepareSchema().catch((error) => {
+      globalThis.rksSchemaReady = undefined;
+      throw error;
+    });
   }
 
   return globalThis.rksSchemaReady;
+}
+
+async function prepareSchema() {
+  const sql = getSql();
+
+  if (await schemaLooksReady(sql)) {
+    return;
+  }
+
+  await migrate();
+}
+
+async function schemaLooksReady(sql: Sql) {
+  const rows = await sql<{ ready: boolean }[]>`
+    SELECT (
+      to_regclass('public.teachers') IS NOT NULL
+      AND to_regclass('public.sessions') IS NOT NULL
+      AND to_regclass('public.classes') IS NOT NULL
+      AND to_regclass('public.class_settings') IS NOT NULL
+      AND to_regclass('public.students') IS NOT NULL
+      AND to_regclass('public.exams') IS NOT NULL
+      AND to_regclass('public.scores') IS NOT NULL
+      AND to_regclass('public.rks_snapshots') IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'rks_formula_exponent'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'auto_class_first'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'query_result_style'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'perfect_count'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'best_count'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'class_settings'
+          AND column_name = 'rks_formula_mode'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'exams'
+          AND column_name = 'difficulty'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'scores'
+          AND column_name = 'is_manual_class_first'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'rks_snapshots'
+          AND column_name = 'snapshot'
+      )
+    ) AS ready
+  `;
+
+  return rows[0]?.ready === true;
 }
 
 async function migrate() {
