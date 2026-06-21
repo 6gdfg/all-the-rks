@@ -60,7 +60,7 @@ export type RksHistoryPoint = {
 };
 
 export type RksFormulaMode = "curve" | "linear" | "phigros";
-export type StudentVisibility = "public" | "code_only";
+export type StudentVisibility = "public" | "rank_only" | "code_only";
 
 export const DEFAULT_RKS_FORMULA_MODE: RksFormulaMode = "curve";
 export const DEFAULT_RKS_FORMULA_EXPONENT = 0.8;
@@ -218,6 +218,10 @@ export function normalizeRksFormulaMode(value: unknown): RksFormulaMode {
 }
 
 export function normalizeStudentVisibility(value: unknown): StudentVisibility {
+  if (value === "rank_only") {
+    return "rank_only";
+  }
+
   if (value === "code_only") {
     return "code_only";
   }

@@ -76,6 +76,7 @@ async function schemaLooksReady(sql: Sql) {
       to_regclass('public.teachers') IS NOT NULL
       AND to_regclass('public.sessions') IS NOT NULL
       AND to_regclass('public.student_sessions') IS NOT NULL
+      AND to_regclass('public.site_settings') IS NOT NULL
       AND to_regclass('public.classes') IS NOT NULL
       AND to_regclass('public.class_settings') IS NOT NULL
       AND to_regclass('public.students') IS NOT NULL
@@ -83,6 +84,25 @@ async function schemaLooksReady(sql: Sql) {
       AND to_regclass('public.scores') IS NOT NULL
       AND to_regclass('public.rks_snapshots') IS NOT NULL
       AND to_regclass('public.students_query_code_idx') IS NOT NULL
+      AND (
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'site_settings'
+          AND column_name IN (
+            'hero_eyebrow',
+            'hero_title',
+            'hero_subtitle',
+            'stat_1_value',
+            'stat_1_label',
+            'stat_2_value',
+            'stat_2_label',
+            'stat_3_value',
+            'stat_3_label',
+            'stat_4_value',
+            'stat_4_label'
+          )
+      ) = 11
       AND EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -174,6 +194,18 @@ async function schemaLooksReady(sql: Sql) {
           AND table_name = 'rks_snapshots'
           AND column_name = 'query_code'
       )
+      AND EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'students_visibility_check'
+          AND pg_get_constraintdef(oid) LIKE '%rank_only%'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'rks_snapshots_visibility_check'
+          AND pg_get_constraintdef(oid) LIKE '%rank_only%'
+      )
     ) AS ready
   `;
 
@@ -218,6 +250,118 @@ async function migrate() {
   await sql`
     CREATE INDEX IF NOT EXISTS sessions_teacher_idx
       ON sessions(teacher_id)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      hero_eyebrow TEXT NOT NULL DEFAULT 'All The RKS',
+      hero_title TEXT NOT NULL DEFAULT '输入姓名，查看你的 RKS(Ranking Score)。',
+      hero_subtitle TEXT NOT NULL DEFAULT 'rks仅供娱乐。',
+      stat_1_value TEXT NOT NULL DEFAULT '14',
+      stat_1_label TEXT NOT NULL DEFAULT '最佳考试计入',
+      stat_2_value TEXT NOT NULL DEFAULT '+1',
+      stat_2_label TEXT NOT NULL DEFAULT '默认 p1 冠军位',
+      stat_3_value TEXT NOT NULL DEFAULT '/15',
+      stat_3_label TEXT NOT NULL DEFAULT '默认平均分母',
+      stat_4_value TEXT NOT NULL DEFAULT '0.1',
+      stat_4_label TEXT NOT NULL DEFAULT '考试定数精度',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS hero_eyebrow TEXT NOT NULL DEFAULT 'All The RKS'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS hero_title TEXT NOT NULL DEFAULT '输入姓名，查看你的 RKS(Ranking Score)。'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS hero_subtitle TEXT NOT NULL DEFAULT 'rks仅供娱乐。'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_1_value TEXT NOT NULL DEFAULT '14'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_1_label TEXT NOT NULL DEFAULT '最佳考试计入'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_2_value TEXT NOT NULL DEFAULT '+1'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_2_label TEXT NOT NULL DEFAULT '默认 p1 冠军位'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_3_value TEXT NOT NULL DEFAULT '/15'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_3_label TEXT NOT NULL DEFAULT '默认平均分母'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_4_value TEXT NOT NULL DEFAULT '0.1'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS stat_4_label TEXT NOT NULL DEFAULT '考试定数精度'
+  `;
+
+  await sql`
+    ALTER TABLE site_settings
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `;
+
+  await sql`
+    INSERT INTO site_settings (
+      id,
+      hero_eyebrow,
+      hero_title,
+      hero_subtitle,
+      stat_1_value,
+      stat_1_label,
+      stat_2_value,
+      stat_2_label,
+      stat_3_value,
+      stat_3_label,
+      stat_4_value,
+      stat_4_label,
+      updated_at
+    )
+    VALUES (
+      1,
+      'All The RKS',
+      '输入姓名，查看你的 RKS(Ranking Score)。',
+      'rks仅供娱乐。',
+      '14',
+      '最佳考试计入',
+      '+1',
+      '默认 p1 冠军位',
+      '/15',
+      '默认平均分母',
+      '0.1',
+      '考试定数精度',
+      NOW()
+    )
+    ON CONFLICT (id) DO NOTHING
   `;
 
   await sql`
@@ -396,7 +540,7 @@ async function migrate() {
     UPDATE students
     SET visibility = 'public'
     WHERE visibility IS NULL
-       OR visibility NOT IN ('public', 'code_only')
+       OR visibility NOT IN ('public', 'rank_only', 'code_only')
   `;
 
   await sql`
@@ -441,7 +585,7 @@ async function migrate() {
   await sql`
     ALTER TABLE students
     ADD CONSTRAINT students_visibility_check
-    CHECK (visibility IN ('public', 'code_only'))
+    CHECK (visibility IN ('public', 'rank_only', 'code_only'))
   `;
 
   await sql`
@@ -590,7 +734,7 @@ async function migrate() {
     UPDATE rks_snapshots
     SET visibility = 'public'
     WHERE visibility IS NULL
-       OR visibility NOT IN ('public', 'code_only')
+       OR visibility NOT IN ('public', 'rank_only', 'code_only')
   `;
 
   await sql`
@@ -639,7 +783,7 @@ async function migrate() {
   await sql`
     ALTER TABLE rks_snapshots
     ADD CONSTRAINT rks_snapshots_visibility_check
-    CHECK (visibility IN ('public', 'code_only'))
+    CHECK (visibility IN ('public', 'rank_only', 'code_only'))
   `;
 
   await sql`

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 
 import { ensureSchema, getSql, hasDatabaseUrl } from "./db";
@@ -84,6 +85,46 @@ export type PublicHomeData = {
   subjectOptions: PublicSubjectOption[];
   leaderboards: PublicLeaderboard[];
   results: PublicSearchResult[];
+};
+
+export type HomeStatCopy = {
+  value: string;
+  label: string;
+};
+
+export type HomeCopy = {
+  heroEyebrow: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroStats: HomeStatCopy[];
+};
+
+export const DEFAULT_HOME_COPY: HomeCopy = {
+  heroEyebrow: "All The RKS",
+  heroTitle: "输入姓名，查看你的 RKS(Ranking Score)。",
+  heroSubtitle: "rks仅供娱乐。",
+  heroStats: [
+    { value: "14", label: "最佳考试计入" },
+    { value: "+1", label: "默认 p1 冠军位" },
+    { value: "/15", label: "默认平均分母" },
+    { value: "0.1", label: "考试定数精度" }
+  ]
+};
+
+export const HOME_COPY_CACHE_TAG = "home-copy";
+
+type HomeCopyRecord = {
+  heroEyebrow: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  stat1Value: string;
+  stat1Label: string;
+  stat2Value: string;
+  stat2Label: string;
+  stat3Value: string;
+  stat3Label: string;
+  stat4Value: string;
+  stat4Label: string;
 };
 
 export type StudentPortalSubject = {
@@ -304,6 +345,58 @@ export async function getTeacherDashboard(teacherId: number) {
     databaseReady: true,
     classes
   };
+}
+
+export const getHomeCopy = unstable_cache(readHomeCopy, ["home-copy"], {
+  revalidate: 3600,
+  tags: [HOME_COPY_CACHE_TAG]
+});
+
+async function readHomeCopy(): Promise<HomeCopy> {
+  if (!hasDatabaseUrl()) {
+    return DEFAULT_HOME_COPY;
+  }
+
+  try {
+    const sql = getSql();
+    const rows = await sql<HomeCopyRecord[]>`
+      SELECT
+        hero_eyebrow AS "heroEyebrow",
+        hero_title AS "heroTitle",
+        hero_subtitle AS "heroSubtitle",
+        stat_1_value AS "stat1Value",
+        stat_1_label AS "stat1Label",
+        stat_2_value AS "stat2Value",
+        stat_2_label AS "stat2Label",
+        stat_3_value AS "stat3Value",
+        stat_3_label AS "stat3Label",
+        stat_4_value AS "stat4Value",
+        stat_4_label AS "stat4Label"
+      FROM site_settings
+      WHERE id = 1
+      LIMIT 1
+    `;
+
+    const row = rows[0];
+
+    if (!row) {
+      return DEFAULT_HOME_COPY;
+    }
+
+    return {
+      heroEyebrow: row.heroEyebrow,
+      heroTitle: row.heroTitle,
+      heroSubtitle: row.heroSubtitle,
+      heroStats: [
+        { value: row.stat1Value, label: row.stat1Label },
+        { value: row.stat2Value, label: row.stat2Label },
+        { value: row.stat3Value, label: row.stat3Label },
+        { value: row.stat4Value, label: row.stat4Label }
+      ]
+    };
+  } catch {
+    return DEFAULT_HOME_COPY;
+  }
 }
 
 async function getDashboardClassRows(sql: ReturnType<typeof getSql>, teacherId: number) {
@@ -576,7 +669,7 @@ async function getPublicSearchSnapshotRows(
         AND (
           rks_snapshots.visibility = 'public'
           OR (
-            rks_snapshots.visibility = 'code_only'
+            rks_snapshots.visibility IN ('rank_only', 'code_only')
             AND rks_snapshots.query_code = ${queryCode}
           )
         )
@@ -647,7 +740,7 @@ async function warmSnapshotsForPublicSearch(
         AND (
           students.visibility = 'public'
           OR (
-            students.visibility = 'code_only'
+            students.visibility IN ('rank_only', 'code_only')
             AND students.query_code = ${queryCode}
           )
         )

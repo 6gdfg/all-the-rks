@@ -229,7 +229,7 @@ export function PublicSearch({
             <input
               name="code"
               value={queryCode}
-              placeholder="仅查询码模式需要"
+              placeholder="隐藏详情时需要"
               autoComplete="one-time-code"
               maxLength={40}
               type="password"
@@ -296,7 +296,7 @@ export function PublicSearch({
             </div>
           ) : (
             <div className="empty-state">
-              {isLoading ? "正在查询..." : "没有找到有成绩数据的公开查询结果。"}
+              {isLoading ? "正在查询..." : "没有找到有成绩数据的可查询结果。"}
             </div>
           )}
         </section>

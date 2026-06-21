@@ -1305,13 +1305,13 @@ select[name="difficulty"] option[value="AT"] {
 
 .student-access-form {
   display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(300px, 1.05fr) minmax(220px, 0.95fr) auto;
   gap: 14px;
   align-items: end;
 }
 
 .privacy-segmented {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .student-subject-list {
@@ -1393,6 +1393,39 @@ select[name="difficulty"] option[value="AT"] {
   grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.6fr) auto;
   gap: 12px;
   align-items: end;
+}
+
+.home-copy-form {
+  display: grid;
+  gap: 14px;
+}
+
+.home-copy-main {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.55fr) minmax(240px, 1fr) minmax(220px, 0.9fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.home-copy-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-copy-stat-editor {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.45fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.home-copy-stat-editor input {
+  min-height: 36px;
+}
+
+.home-copy-save {
+  justify-self: start;
 }
 
 .toolbar-switch {
@@ -1794,10 +1827,17 @@ select[name="difficulty"] option[value="AT"] {
   .grid-3,
   .grid-4,
   .settings-grid,
+  .home-copy-form,
   .toolbar-form,
   .exam-create-form,
   .student-access-form,
   .student-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .home-copy-main,
+  .home-copy-stat-grid,
+  .home-copy-stat-editor {
     grid-template-columns: 1fr;
   }
 

@@ -236,13 +236,13 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             </div>
             <div className="formula-description">
               <p className="field-hint" data-formula-mode="curve">
-                考试曲线：定数 × 得分率^指数。适合普通考试分数分布，指数越小越照顾中低分，指数越大越强调高分差距。
+                考试曲线：定数 × 得分率^指数。
               </p>
               <p className="field-hint" data-formula-mode="linear">
-                线性：定数 × 得分率。最直观、最好解释，分数比例和单次 RKS 完全同步变化。
+                线性：定数 × 得分率。
               </p>
               <p className="field-hint" data-formula-mode="phigros">
-                Phigros：按 Phigros 风格曲线计算。高准确率收益明显，低分段会被压得更低，更适合接近满分的场景。
+                Phigros（不推荐）：沿用phigros计算公式，仅适用于分数都很高的情况
               </p>
             </div>
           </div>
@@ -370,6 +370,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 />
                 <select name="visibility" defaultValue={student.visibility}>
                   <option value="public">公开</option>
+                  <option value="rank_only">仅榜单公开</option>
                   <option value="code_only">仅查询码</option>
                 </select>
                 <input name="notes" defaultValue={student.notes} />

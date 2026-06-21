@@ -67,7 +67,7 @@ export default async function StudentPage({ searchParams }: StudentPageProps) {
                   隐私设置
                 </h2>
                 <p className="muted">
-                  公开表示可在首页按姓名查到；仅查询码表示只可从学生入口查看。
+                  公开表示首页可查详情；仅榜单公开表示排行榜显示姓名和 RKS，但详情必须输入查询码；仅查询码表示榜单也打码。
                 </p>
               </div>
             </div>
@@ -86,6 +86,15 @@ export default async function StudentPage({ searchParams }: StudentPageProps) {
                       value="public"
                     />
                     <span>公开</span>
+                  </label>
+                  <label>
+                    <input
+                      defaultChecked={portalData.visibility === "rank_only"}
+                      name="visibility"
+                      type="radio"
+                      value="rank_only"
+                    />
+                    <span>仅榜单公开</span>
                   </label>
                   <label>
                     <input
@@ -262,11 +271,17 @@ function StudentScoreRow({
 }
 
 function visibilityText(visibility: StudentVisibility) {
-  return visibility === "code_only"
-    ? "仅学生入口可查看"
-    : "可在首页公开查询";
+  if (visibility === "rank_only") {
+    return "榜单公开，详情需查询码";
+  }
+
+  return visibility === "code_only" ? "仅学生入口可查看" : "可在首页公开查询";
 }
 
 function visibilityBadgeText(visibility: StudentVisibility) {
+  if (visibility === "rank_only") {
+    return "仅榜单公开";
+  }
+
   return visibility === "code_only" ? "仅查询码" : "公开";
 }

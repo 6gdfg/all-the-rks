@@ -1,6 +1,6 @@
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { PublicSearch } from "@/components/PublicSearch";
-import { getPublicHomeData, type PublicHomeData } from "@/lib/data";
+import { getHomeCopy, getPublicHomeData, type PublicHomeData } from "@/lib/data";
 import { hasDatabaseUrl } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -18,39 +18,30 @@ export default async function Home({ searchParams }: HomeProps) {
   const query = params.q ?? "";
   const selectedSubjects = normalizeSelectedSubjects(params.subject);
   const shouldLoadServerData = query.trim().length > 0 || selectedSubjects.length > 0;
-  const data = shouldLoadServerData
-    ? await getPublicHomeData(query, selectedSubjects, {
-        includeLeaderboards: false
-      })
-    : getFastInitialPublicData();
+  const [data, homeCopy] = await Promise.all([
+    shouldLoadServerData
+      ? getPublicHomeData(query, selectedSubjects, {
+          includeLeaderboards: false
+        })
+      : Promise.resolve(getFastInitialPublicData()),
+    getHomeCopy()
+  ]);
 
   return (
     <main>
       <section className="page-hero">
         <div className="hero-copy">
-          <p className="eyebrow">All The RKS</p>
-          <h1>输入姓名，查看你的 RKS(Ranking Score)。</h1>
-          <p>
-            rks仅供娱乐。
-          </p>
+          {homeCopy.heroEyebrow ? <p className="eyebrow">{homeCopy.heroEyebrow}</p> : null}
+          <h1>{homeCopy.heroTitle}</h1>
+          {homeCopy.heroSubtitle ? <p>{homeCopy.heroSubtitle}</p> : null}
         </div>
         <div className="stat-band" aria-label="RKS 计算规则">
-          <div className="stat-item">
-            <span className="stat-value">14</span>
-            <span className="muted">最佳考试计入</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-value">+1</span>
-            <span className="muted">默认 p1 冠军位</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-value">/15</span>
-            <span className="muted">默认平均分母</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-value">0.1</span>
-            <span className="muted">考试定数精度</span>
-          </div>
+          {homeCopy.heroStats.map((item, index) => (
+            <div className="stat-item" key={`${item.value}-${item.label}-${index}`}>
+              <span className="stat-value">{item.value}</span>
+              <span className="muted">{item.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 

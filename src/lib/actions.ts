@@ -1,7 +1,7 @@
 "use server";
 
 import type { Sql, TransactionSql } from "postgres";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
@@ -16,6 +16,7 @@ import { ensureSchema, getSql } from "./db";
 import {
   assertClassOwner,
   getSharedRosterInfoForOwnedClass,
+  HOME_COPY_CACHE_TAG,
   refreshClassRksSnapshots
 } from "./data";
 import { normalizeExamDifficulty } from "./difficulty";
@@ -737,6 +738,97 @@ export async function createClassInlineAction(
     await refreshClassRksSnapshots(classId);
     revalidatePath("/dashboard");
     return "班级已创建。";
+  });
+}
+
+export async function updateHomeCopyInlineAction(
+  _state: InlineActionState,
+  formData: FormData
+) {
+  return runInlineAction(async () => {
+    await requireTeacher();
+
+    const heroEyebrow = readText(formData, "heroEyebrow", 60);
+    const heroTitle = readText(formData, "heroTitle", 160);
+    const heroSubtitle = readText(formData, "heroSubtitle", 240);
+    const stat1Value = readText(formData, "stat1Value", 16);
+    const stat1Label = readText(formData, "stat1Label", 40);
+    const stat2Value = readText(formData, "stat2Value", 16);
+    const stat2Label = readText(formData, "stat2Label", 40);
+    const stat3Value = readText(formData, "stat3Value", 16);
+    const stat3Label = readText(formData, "stat3Label", 40);
+    const stat4Value = readText(formData, "stat4Value", 16);
+    const stat4Label = readText(formData, "stat4Label", 40);
+
+    if (!heroTitle) {
+      throw new Error("首页主标题不能为空。");
+    }
+
+    const statItems = [
+      [stat1Value, stat1Label],
+      [stat2Value, stat2Label],
+      [stat3Value, stat3Label],
+      [stat4Value, stat4Label]
+    ];
+
+    if (statItems.some(([value, label]) => !value || !label)) {
+      throw new Error("规则小块的数字和说明都不能为空。");
+    }
+
+    await ensureSchema();
+
+    const sql = getSql();
+    await sql`
+      INSERT INTO site_settings (
+        id,
+        hero_eyebrow,
+        hero_title,
+        hero_subtitle,
+        stat_1_value,
+        stat_1_label,
+        stat_2_value,
+        stat_2_label,
+        stat_3_value,
+        stat_3_label,
+        stat_4_value,
+        stat_4_label,
+        updated_at
+      )
+      VALUES (
+        1,
+        ${heroEyebrow},
+        ${heroTitle},
+        ${heroSubtitle},
+        ${stat1Value},
+        ${stat1Label},
+        ${stat2Value},
+        ${stat2Label},
+        ${stat3Value},
+        ${stat3Label},
+        ${stat4Value},
+        ${stat4Label},
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE
+      SET hero_eyebrow = EXCLUDED.hero_eyebrow,
+          hero_title = EXCLUDED.hero_title,
+          hero_subtitle = EXCLUDED.hero_subtitle,
+          stat_1_value = EXCLUDED.stat_1_value,
+          stat_1_label = EXCLUDED.stat_1_label,
+          stat_2_value = EXCLUDED.stat_2_value,
+          stat_2_label = EXCLUDED.stat_2_label,
+          stat_3_value = EXCLUDED.stat_3_value,
+          stat_3_label = EXCLUDED.stat_3_label,
+          stat_4_value = EXCLUDED.stat_4_value,
+          stat_4_label = EXCLUDED.stat_4_label,
+          updated_at = NOW()
+    `;
+
+    revalidateTag(HOME_COPY_CACHE_TAG);
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+
+    return "首页文字已保存。";
   });
 }
 

@@ -1,12 +1,16 @@
-import { LogOut, Plus, Settings } from "lucide-react";
+import { LogOut, Plus, Save, Settings } from "lucide-react";
 import { Button, LinkButton } from "@cloudflare/kumo/components/button";
 
 import { AsyncActionForm } from "@/components/AsyncActionForm";
 import { DatabaseSetup } from "@/components/DatabaseSetup";
 import { Notice } from "@/components/Notice";
-import { createClassInlineAction, logoutTeacherAction } from "@/lib/actions";
+import {
+  createClassInlineAction,
+  logoutTeacherAction,
+  updateHomeCopyInlineAction
+} from "@/lib/actions";
 import { requireTeacher } from "@/lib/auth";
-import { getTeacherDashboard } from "@/lib/data";
+import { getHomeCopy, getTeacherDashboard } from "@/lib/data";
 import { formatRks } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +26,13 @@ type DashboardProps = {
 export default async function DashboardPage({ searchParams }: DashboardProps) {
   const teacher = await requireTeacher();
   const params = (await searchParams) ?? {};
-  const dashboard = await getTeacherDashboard(teacher.id);
+  const [dashboard, homeCopy] = await Promise.all([
+    getTeacherDashboard(teacher.id),
+    getHomeCopy()
+  ]);
+  const homeStats = Array.from({ length: 4 }, (_, index) => (
+    homeCopy.heroStats[index] ?? { value: "", label: "" }
+  ));
 
   return (
     <main>
@@ -45,6 +55,76 @@ export default async function DashboardPage({ searchParams }: DashboardProps) {
       <Notice notice={params.notice} error={params.error} />
 
       {!dashboard.databaseReady ? <DatabaseSetup /> : null}
+
+      <section className="toolbar-panel" style={{ marginBottom: 18 }}>
+        <div className="panel-header">
+          <div>
+            <h2>首页文字</h2>
+            <p className="muted">自定义首页顶部查询区域的标题、说明和规则小块。</p>
+          </div>
+        </div>
+        <AsyncActionForm
+          className="home-copy-form"
+          action={updateHomeCopyInlineAction}
+        >
+          <div className="home-copy-main">
+            <label className="field">
+              <span>小标题</span>
+              <input
+                name="heroEyebrow"
+                defaultValue={homeCopy.heroEyebrow}
+                maxLength={60}
+                placeholder="All The RKS"
+              />
+            </label>
+            <label className="field">
+              <span>主标题</span>
+              <textarea
+                name="heroTitle"
+                defaultValue={homeCopy.heroTitle}
+                maxLength={160}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>说明文字</span>
+              <textarea
+                name="heroSubtitle"
+                defaultValue={homeCopy.heroSubtitle}
+                maxLength={240}
+              />
+            </label>
+          </div>
+          <div className="home-copy-stat-grid" aria-label="首页规则小块">
+            {homeStats.map((item, index) => (
+              <div className="home-copy-stat-editor" key={index}>
+                <label className="field">
+                  <span>{`规则 ${index + 1} 数字`}</span>
+                  <input
+                    name={`stat${index + 1}Value`}
+                    defaultValue={item.value}
+                    maxLength={16}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  <span>{`规则 ${index + 1} 说明`}</span>
+                  <input
+                    name={`stat${index + 1}Label`}
+                    defaultValue={item.label}
+                    maxLength={40}
+                    required
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+          <Button className="home-copy-save" variant="primary" type="submit">
+            <Save aria-hidden="true" size={17} />
+            保存首页文字
+          </Button>
+        </AsyncActionForm>
+      </section>
 
       <section className="toolbar-panel" style={{ marginBottom: 18 }}>
         <AsyncActionForm
