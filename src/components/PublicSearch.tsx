@@ -32,6 +32,7 @@ export function PublicSearch({
 }: PublicSearchProps) {
   const [data, setData] = useState(initialData);
   const [query, setQuery] = useState(initialQuery);
+  const [queryCode, setQueryCode] = useState("");
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [selectedSubjects, setSelectedSubjects] = useState(initialSubjects);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,12 +42,18 @@ export function PublicSearch({
   async function runSearch(
     nextQuery = query,
     nextSubjects = selectedSubjects,
-    historyMode: "push" | "replace" = "push"
+    historyMode: "push" | "replace" = "push",
+    nextQueryCode = queryCode
   ) {
     abortRef.current?.abort();
 
     const controller = new AbortController();
-    const params = buildSearchParams(nextQuery, nextSubjects);
+    const fetchParams = buildSearchParams(
+      nextQuery,
+      nextSubjects,
+      nextQueryCode
+    );
+    const urlParams = buildSearchParams(nextQuery, nextSubjects);
     const startedAt = performance.now();
 
     abortRef.current = controller;
@@ -59,7 +66,7 @@ export function PublicSearch({
     }));
 
     try {
-      const response = await fetch(`/api/public-search?${params.toString()}`, {
+      const response = await fetch(`/api/public-search?${fetchParams.toString()}`, {
         cache: "no-store",
         signal: controller.signal
       });
@@ -78,7 +85,7 @@ export function PublicSearch({
       setActiveQuery(nextQuery);
       setSelectedSubjects(nextSubjects);
       setStatusText(`查询完成 · ${elapsedSeconds}s`);
-      updateBrowserUrl(params, historyMode);
+      updateBrowserUrl(urlParams, historyMode);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
@@ -95,7 +102,7 @@ export function PublicSearch({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void runSearch(query, selectedSubjects);
+    void runSearch(query, selectedSubjects, "push", queryCode);
   }
 
   function toggleSubject(subject: string) {
@@ -106,7 +113,7 @@ export function PublicSearch({
     setSelectedSubjects(nextSubjects);
 
     if (query.trim()) {
-      void runSearch(query, nextSubjects);
+      void runSearch(query, nextSubjects, "push", queryCode);
     } else {
       updateBrowserUrl(buildSearchParams(query, nextSubjects), "push");
     }
@@ -116,7 +123,7 @@ export function PublicSearch({
     setSelectedSubjects([]);
 
     if (query.trim()) {
-      void runSearch(query, []);
+      void runSearch(query, [], "push", queryCode);
     } else {
       updateBrowserUrl(buildSearchParams(query, []), "push");
     }
@@ -184,9 +191,10 @@ export function PublicSearch({
       const nextSubjects = normalizeSelectedSubjects(params.getAll("subject"));
 
       setQuery(nextQuery);
+      setQueryCode("");
       setActiveQuery(nextQuery);
       setSelectedSubjects(nextSubjects);
-      void runSearch(nextQuery, nextSubjects, "replace");
+      void runSearch(nextQuery, nextSubjects, "replace", "");
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -214,6 +222,18 @@ export function PublicSearch({
               placeholder="例如：张三"
               autoComplete="name"
               onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>查询码（可选）</span>
+            <input
+              name="code"
+              value={queryCode}
+              placeholder="仅查询码模式需要"
+              autoComplete="one-time-code"
+              maxLength={40}
+              type="password"
+              onChange={(event) => setQueryCode(event.target.value)}
             />
           </label>
           <Button className="search-submit" variant="primary" type="submit">
@@ -494,12 +514,17 @@ function SimpleScoreRow({
   );
 }
 
-function buildSearchParams(query: string, subjects: string[]) {
+function buildSearchParams(query: string, subjects: string[], queryCode = "") {
   const params = new URLSearchParams();
   const trimmedQuery = query.trim();
+  const trimmedQueryCode = queryCode.trim();
 
   if (trimmedQuery) {
     params.set("q", trimmedQuery);
+  }
+
+  if (trimmedQueryCode) {
+    params.set("code", trimmedQueryCode);
   }
 
   for (const subject of normalizeSelectedSubjects(subjects)) {

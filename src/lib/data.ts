@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ensureSchema, getSql, hasDatabaseUrl } from "./db";
 import { normalizeExamDifficulty } from "./difficulty";
+import { normalizeQueryCode } from "./query-code";
 import {
   calculateClassRks,
   DEFAULT_RKS_FORMULA_EXPONENT,
@@ -105,6 +106,7 @@ export type StudentPortalData = {
 
 type PublicHomeOptions = {
   includeLeaderboards?: boolean;
+  queryCode?: string;
 };
 
 type ClassRecord = {
@@ -399,6 +401,7 @@ export async function getPublicHomeData(
 
   const sql = getSql();
   const selectedSubjects = normalizeSubjectFilters(subjects);
+  const queryCode = normalizeQueryCode(options.queryCode);
   const subjectRows = await sql<PublicSubjectOption[]>`
     SELECT DISTINCT classes.subject
     FROM classes
@@ -412,11 +415,19 @@ export async function getPublicHomeData(
 
   if (trimmedQuery) {
     const pattern = `%${trimmedQuery.toLowerCase()}%`;
-    let matchedRows = await getPublicSearchSnapshotRows(pattern, selectedSubjects);
+    let matchedRows = await getPublicSearchSnapshotRows(
+      pattern,
+      selectedSubjects,
+      queryCode
+    );
 
     if (matchedRows.length === 0) {
-      await warmSnapshotsForPublicSearch(trimmedQuery, selectedSubjects);
-      matchedRows = await getPublicSearchSnapshotRows(pattern, selectedSubjects);
+      await warmSnapshotsForPublicSearch(trimmedQuery, selectedSubjects, queryCode);
+      matchedRows = await getPublicSearchSnapshotRows(
+        pattern,
+        selectedSubjects,
+        queryCode
+      );
     }
 
     const resultsByName = new Map<string, PublicSearchResult>();
@@ -550,12 +561,27 @@ async function getSnapshotRankings(classId: number) {
   return rows.map(normalizeSnapshot);
 }
 
-async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: string[]) {
+async function getPublicSearchSnapshotRows(
+  pattern: string,
+  selectedSubjects: string[],
+  queryCode: string
+) {
   const sql = getSql();
   const subjectFilter =
     selectedSubjects.length > 0
       ? sql`AND classes.subject IN ${sql(selectedSubjects)}`
       : sql``;
+  const visibilityFilter = queryCode
+    ? sql`
+        AND (
+          rks_snapshots.visibility = 'public'
+          OR (
+            rks_snapshots.visibility = 'code_only'
+            AND rks_snapshots.query_code = ${queryCode}
+          )
+        )
+      `
+    : sql`AND rks_snapshots.visibility = 'public'`;
 
   return sql<
     (ClassRecord &
@@ -597,7 +623,7 @@ async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: st
     INNER JOIN class_settings ON class_settings.class_id = classes.id
     WHERE class_settings.public_search_enabled = TRUE
       AND rks_snapshots.result_count > 0
-      AND rks_snapshots.visibility = 'public'
+      ${visibilityFilter}
       AND LOWER(rks_snapshots.student_name) LIKE ${pattern}
       ${subjectFilter}
     ORDER BY classes.created_at DESC, rks_snapshots.student_name ASC
@@ -605,13 +631,28 @@ async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: st
   `;
 }
 
-async function warmSnapshotsForPublicSearch(query: string, selectedSubjects: string[]) {
+async function warmSnapshotsForPublicSearch(
+  query: string,
+  selectedSubjects: string[],
+  queryCode: string
+) {
   const sql = getSql();
   const pattern = `%${query.toLowerCase()}%`;
   const subjectFilter =
     selectedSubjects.length > 0
       ? sql`AND public_classes.subject IN ${sql(selectedSubjects)}`
       : sql``;
+  const visibilityFilter = queryCode
+    ? sql`
+        AND (
+          students.visibility = 'public'
+          OR (
+            students.visibility = 'code_only'
+            AND students.query_code = ${queryCode}
+          )
+        )
+      `
+    : sql`AND students.visibility = 'public'`;
   const classRows = await sql<{ classId: number }[]>`
     SELECT DISTINCT public_classes.id AS "classId"
     FROM classes AS public_classes
@@ -622,7 +663,7 @@ async function warmSnapshotsForPublicSearch(query: string, selectedSubjects: str
     INNER JOIN students
       ON students.class_id = roster_classes.id
     WHERE class_settings.public_search_enabled = TRUE
-      AND students.visibility = 'public'
+      ${visibilityFilter}
       AND LOWER(students.name) LIKE ${pattern}
       ${subjectFilter}
     LIMIT 20
