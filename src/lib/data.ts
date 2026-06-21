@@ -10,9 +10,11 @@ import {
   DEFAULT_RKS_FORMULA_MODE,
   normalizeRksFormulaExponent,
   normalizeRksFormulaMode,
+  normalizeStudentVisibility,
   type ExamRow,
   type RksFormulaMode,
   type ScoreRow,
+  type StudentVisibility,
   type StudentRks,
   type StudentRow
 } from "./rks";
@@ -83,6 +85,24 @@ export type PublicHomeData = {
   results: PublicSearchResult[];
 };
 
+export type StudentPortalSubject = {
+  classId: number;
+  className: string;
+  subject: string;
+  visibility: StudentVisibility;
+  queryCode: string;
+  totalStudents: number;
+  updatedAt: string;
+  student: StudentRks | null;
+};
+
+export type StudentPortalData = {
+  studentName: string;
+  queryCode: string;
+  visibility: StudentVisibility;
+  subjects: StudentPortalSubject[];
+};
+
 type PublicHomeOptions = {
   includeLeaderboards?: boolean;
 };
@@ -124,11 +144,29 @@ type SnapshotRow = {
   studentName: string;
   studentNo: string;
   notes: string;
+  visibility: StudentVisibility;
+  queryCode: string;
   rks: number;
   rank: number;
   resultCount: number;
   snapshot: StudentRks;
 };
+
+type StudentPortalRecord = ClassRecord & {
+    classId: number;
+    studentId: number;
+    studentName: string;
+    studentNo: string;
+    notes: string;
+    visibility: StudentVisibility;
+    queryCode: string;
+    rks: number;
+    rank: number;
+    resultCount: number;
+    snapshot: StudentRks | null;
+    totalStudents: number;
+    updatedAt: string | null;
+  };
 
 export async function refreshClassRksSnapshots(classId: number) {
   await ensureSchema();
@@ -159,6 +197,7 @@ export async function refreshClassRksSnapshots(classId: number) {
     formulaExponent: settings.rksFormulaExponent
   });
   const studentIds = rankings.map((student) => student.studentId);
+  const studentsById = new Map(students.map((student) => [student.id, student]));
 
   await sql.begin(async (tx) => {
     if (studentIds.length === 0) {
@@ -175,6 +214,8 @@ export async function refreshClassRksSnapshots(classId: number) {
     }
 
     for (const student of rankings) {
+      const sourceStudent = studentsById.get(student.studentId);
+
       await tx`
         INSERT INTO rks_snapshots (
           class_id,
@@ -182,6 +223,8 @@ export async function refreshClassRksSnapshots(classId: number) {
           student_name,
           student_no,
           notes,
+          visibility,
+          query_code,
           rks,
           rank,
           result_count,
@@ -194,6 +237,8 @@ export async function refreshClassRksSnapshots(classId: number) {
           ${student.name},
           ${student.studentNo},
           ${student.notes},
+          ${sourceStudent?.visibility ?? "public"},
+          ${sourceStudent?.queryCode ?? ""},
           ${student.rks},
           ${student.rank},
           ${student.results.length},
@@ -204,6 +249,8 @@ export async function refreshClassRksSnapshots(classId: number) {
         SET student_name = EXCLUDED.student_name,
             student_no = EXCLUDED.student_no,
             notes = EXCLUDED.notes,
+            visibility = EXCLUDED.visibility,
+            query_code = EXCLUDED.query_code,
             rks = EXCLUDED.rks,
             rank = EXCLUDED.rank,
             result_count = EXCLUDED.result_count,
@@ -450,7 +497,7 @@ async function getPublicLeaderboards() {
         className: item.name,
         subject: item.subject,
         limit,
-        students: rows.map(normalizeSnapshot)
+        students: rows.map(normalizeLeaderboardSnapshot)
       };
     })
   );
@@ -466,6 +513,8 @@ async function getLeaderboardSnapshotRows(classId: number, limit: number) {
           student_name AS "studentName",
           student_no AS "studentNo",
           notes,
+          visibility,
+          query_code AS "queryCode",
           rks::FLOAT AS rks,
           rank,
           result_count AS "resultCount",
@@ -487,6 +536,8 @@ async function getSnapshotRankings(classId: number) {
       student_name AS "studentName",
       student_no AS "studentNo",
       notes,
+      visibility,
+      query_code AS "queryCode",
       rks::FLOAT AS rks,
       rank,
       result_count AS "resultCount",
@@ -534,6 +585,8 @@ async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: st
       rks_snapshots.student_name AS "studentName",
       rks_snapshots.student_no AS "studentNo",
       rks_snapshots.notes,
+      rks_snapshots.visibility,
+      rks_snapshots.query_code AS "queryCode",
       rks_snapshots.rks::FLOAT AS rks,
       rks_snapshots.rank,
       rks_snapshots.result_count AS "resultCount",
@@ -544,6 +597,7 @@ async function getPublicSearchSnapshotRows(pattern: string, selectedSubjects: st
     INNER JOIN class_settings ON class_settings.class_id = classes.id
     WHERE class_settings.public_search_enabled = TRUE
       AND rks_snapshots.result_count > 0
+      AND rks_snapshots.visibility = 'public'
       AND LOWER(rks_snapshots.student_name) LIKE ${pattern}
       ${subjectFilter}
     ORDER BY classes.created_at DESC, rks_snapshots.student_name ASC
@@ -568,6 +622,7 @@ async function warmSnapshotsForPublicSearch(query: string, selectedSubjects: str
     INNER JOIN students
       ON students.class_id = roster_classes.id
     WHERE class_settings.public_search_enabled = TRUE
+      AND students.visibility = 'public'
       AND LOWER(students.name) LIKE ${pattern}
       ${subjectFilter}
     LIMIT 20
@@ -576,6 +631,45 @@ async function warmSnapshotsForPublicSearch(query: string, selectedSubjects: str
   await Promise.all(
     classRows.map((row) => refreshClassRksSnapshots(Number(row.classId)))
   );
+}
+
+async function getStudentPortalRows(studentName: string, queryCode: string) {
+  const sql = getSql();
+
+  return sql<StudentPortalRecord[]>`
+    SELECT
+      classes.id,
+      classes.name,
+      classes.subject,
+      classes.created_at::TEXT AS "createdAt",
+      students.class_id AS "classId",
+      students.id AS "studentId",
+      students.name AS "studentName",
+      students.student_no AS "studentNo",
+      students.notes,
+      students.visibility,
+      students.query_code AS "queryCode",
+      COALESCE(rks_snapshots.rks, 0)::FLOAT AS rks,
+      COALESCE(rks_snapshots.rank, 0)::INTEGER AS rank,
+      COALESCE(rks_snapshots.result_count, 0)::INTEGER AS "resultCount",
+      rks_snapshots.snapshot,
+      rks_snapshots.updated_at::TEXT AS "updatedAt",
+      COALESCE(class_totals.total_students, 0)::INTEGER AS "totalStudents"
+    FROM students
+    INNER JOIN classes ON classes.id = students.class_id
+    LEFT JOIN rks_snapshots
+      ON rks_snapshots.class_id = students.class_id
+      AND rks_snapshots.student_id = students.id
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::INTEGER AS total_students
+      FROM rks_snapshots
+      WHERE rks_snapshots.class_id = classes.id
+        AND rks_snapshots.result_count > 0
+    ) AS class_totals ON TRUE
+    WHERE LOWER(students.name) = LOWER(${studentName})
+      AND students.query_code = ${queryCode}
+    ORDER BY classes.created_at DESC, classes.id DESC
+  `;
 }
 
 export async function getPublicLeaderboardData() {
@@ -591,6 +685,90 @@ export async function getPublicLeaderboardData() {
   return {
     databaseReady: true,
     leaderboards: await getPublicLeaderboards()
+  };
+}
+
+export async function getStudentPortalData(
+  studentId: number
+): Promise<StudentPortalData | null> {
+  if (!hasDatabaseUrl()) {
+    return null;
+  }
+
+  await ensureSchema();
+
+  const sql = getSql();
+  const baseRows = await sql<{
+    name: string;
+    visibility: StudentVisibility;
+    queryCode: string;
+  }[]>`
+    SELECT
+      name,
+      visibility,
+      query_code AS "queryCode"
+    FROM students
+    WHERE id = ${studentId}
+    LIMIT 1
+  `;
+  const base = baseRows[0];
+
+  if (!base || !base.queryCode) {
+    return null;
+  }
+
+  let rows = await getStudentPortalRows(base.name, base.queryCode);
+  const missingClassIds = [
+    ...new Set(
+      rows
+        .filter((row) => !row.snapshot)
+        .map((row) => Number(row.classId))
+    )
+  ];
+
+  if (missingClassIds.length > 0) {
+    await Promise.all(missingClassIds.map((classId) => refreshClassRksSnapshots(classId)));
+    rows = await getStudentPortalRows(base.name, base.queryCode);
+  }
+
+  const subjects = rows.map((row) => {
+    const snapshotRow = row.snapshot
+      ? ({
+          classId: row.classId,
+          studentId: row.studentId,
+          studentName: row.studentName,
+          studentNo: row.studentNo,
+          notes: row.notes,
+          visibility: row.visibility,
+          queryCode: row.queryCode,
+          rks: row.rks,
+          rank: row.rank,
+          resultCount: row.resultCount,
+          snapshot: row.snapshot
+        } satisfies SnapshotRow)
+      : null;
+
+    return {
+      classId: Number(row.classId),
+      className: row.name,
+      subject: row.subject,
+      visibility: normalizeStudentVisibility(row.visibility),
+      queryCode: row.queryCode,
+      totalStudents: Number(row.totalStudents),
+      updatedAt: row.updatedAt ?? "",
+      student: snapshotRow ? normalizeSnapshot(snapshotRow) : null
+    };
+  });
+  const visibility =
+    subjects.length > 0
+      ? normalizeStudentVisibility(subjects[0].visibility)
+      : normalizeStudentVisibility(base.visibility);
+
+  return {
+    studentName: base.name,
+    queryCode: base.queryCode,
+    visibility,
+    subjects
   };
 }
 
@@ -665,6 +843,28 @@ function normalizeSnapshot(row: SnapshotRow): StudentRks {
     notes: row.notes,
     rks: Number(row.rks),
     rank: Number(row.rank)
+  };
+}
+
+function normalizeLeaderboardSnapshot(row: SnapshotRow): StudentRks {
+  const student = normalizeSnapshot(row);
+
+  if (normalizeStudentVisibility(row.visibility) !== "code_only") {
+    return student;
+  }
+
+  return {
+    ...student,
+    name: "？？？",
+    studentNo: "",
+    notes: "",
+    rks: 0,
+    isMasked: true,
+    rksHistory: [],
+    perfectResults: [],
+    bestResults: [],
+    firstBonus: null,
+    results: []
   };
 }
 
@@ -768,7 +968,9 @@ async function getStudents(classIds: number[]) {
       id,
       name,
       student_no AS "studentNo",
-      notes
+      notes,
+      visibility,
+      query_code AS "queryCode"
     FROM students
     WHERE class_id IN ${sql(classIds)}
     ORDER BY student_no ASC, name ASC, id ASC
@@ -778,7 +980,9 @@ async function getStudents(classIds: number[]) {
     id: Number(row.id),
     name: row.name,
     studentNo: row.studentNo,
-    notes: row.notes
+    notes: row.notes,
+    visibility: normalizeStudentVisibility(row.visibility),
+    queryCode: row.queryCode
   }));
 }
 

@@ -203,7 +203,7 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
               </label>
             </div>
           </div>
-          <div className="segmented-field settings-wide">
+          <div className="segmented-field settings-wide formula-mode-field">
             <span>RKS 单次公式</span>
             <div className="segmented-control">
               <label>
@@ -234,9 +234,17 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 <span>Phigros</span>
               </label>
             </div>
-            <p className="field-hint">
-              默认考试曲线：定数 × 得分率^指数。指数越小，中低分不被压得太狠；指数越大，高分区分更强。
-            </p>
+            <div className="formula-description">
+              <p className="field-hint" data-formula-mode="curve">
+                考试曲线：定数 × 得分率^指数。适合普通考试分数分布，指数越小越照顾中低分，指数越大越强调高分差距。
+              </p>
+              <p className="field-hint" data-formula-mode="linear">
+                线性：定数 × 得分率。最直观、最好解释，分数比例和单次 RKS 完全同步变化。
+              </p>
+              <p className="field-hint" data-formula-mode="phigros">
+                Phigros：按 Phigros 风格曲线计算。高准确率收益明显，低分段会被压得更低，更适合接近满分的场景。
+              </p>
+            </div>
           </div>
           <label className="field">
             <span>曲线指数</span>
@@ -338,6 +346,8 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
             <div className="editor-head student-head">
               <span>学号</span>
               <span>姓名</span>
+              <span>查询码</span>
+              <span>公开方式</span>
               <span>备注</span>
               <span>操作</span>
             </div>
@@ -351,6 +361,17 @@ export default async function ClassPage({ params, searchParams }: ClassPageProps
                 <input type="hidden" name="studentId" value={student.id} />
                 <input name="studentNo" defaultValue={student.studentNo} />
                 <input name="name" defaultValue={student.name} required />
+                <input
+                  name="queryCode"
+                  defaultValue={student.queryCode}
+                  maxLength={40}
+                  minLength={4}
+                  placeholder="留空自动生成"
+                />
+                <select name="visibility" defaultValue={student.visibility}>
+                  <option value="public">公开</option>
+                  <option value="code_only">仅查询码</option>
+                </select>
                 <input name="notes" defaultValue={student.notes} />
                 <div className="button-row">
                   <Button

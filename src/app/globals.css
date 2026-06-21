@@ -1287,6 +1287,88 @@ select[name="difficulty"] option[value="AT"] {
   text-underline-offset: 3px;
 }
 
+.student-page {
+  display: grid;
+  gap: 18px;
+}
+
+.student-login-panel {
+  margin: 0 auto;
+}
+
+.student-portal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.student-access-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(220px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.privacy-segmented {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-subject-list {
+  display: grid;
+  gap: 12px;
+}
+
+.student-subject-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.student-subject-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.student-subject-top > div:first-child {
+  min-width: 0;
+}
+
+.student-subject-top h2,
+.student-subject-top .muted {
+  overflow-wrap: anywhere;
+}
+
+.student-score-details {
+  min-width: 0;
+}
+
+.student-score-details summary {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.student-score-details[open] summary {
+  margin-bottom: 10px;
+}
+
 .dashboard-title {
   display: grid;
   align-content: center;
@@ -1455,6 +1537,20 @@ select[name="difficulty"] option[value="AT"] {
   color: white;
 }
 
+.formula-description {
+  min-height: 38px;
+}
+
+.formula-description .field-hint {
+  display: none;
+}
+
+.formula-mode-field:has(input[value="curve"]:checked) [data-formula-mode="curve"],
+.formula-mode-field:has(input[value="linear"]:checked) [data-formula-mode="linear"],
+.formula-mode-field:has(input[value="phigros"]:checked) [data-formula-mode="phigros"] {
+  display: block;
+}
+
 .table-list {
   display: grid;
   gap: 8px;
@@ -1476,7 +1572,18 @@ select[name="difficulty"] option[value="AT"] {
 
 .student-row,
 .student-head {
-  grid-template-columns: 0.5fr 1fr 1.4fr auto;
+  grid-template-columns:
+    minmax(72px, 0.48fr)
+    minmax(104px, 0.82fr)
+    minmax(112px, 0.72fr)
+    minmax(104px, 0.64fr)
+    minmax(128px, 1fr)
+    auto;
+}
+
+.student-row > input,
+.student-row > select {
+  min-width: 0;
 }
 
 .exam-row,
@@ -1689,6 +1796,7 @@ select[name="difficulty"] option[value="AT"] {
   .settings-grid,
   .toolbar-form,
   .exam-create-form,
+  .student-access-form,
   .student-create-form {
     grid-template-columns: 1fr;
   }
@@ -1726,6 +1834,8 @@ select[name="difficulty"] option[value="AT"] {
 
   .topbar,
   .class-header,
+  .student-portal-header,
+  .student-subject-top,
   .panel-header,
   .result-top {
     align-items: stretch;

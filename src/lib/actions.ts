@@ -20,10 +20,17 @@ import {
 } from "./data";
 import { normalizeExamDifficulty } from "./difficulty";
 import {
+  generateQueryCode,
+  getQueryCodeRuleText,
+  isValidQueryCode,
+  normalizeQueryCode
+} from "./query-code";
+import {
   DEFAULT_RKS_FORMULA_EXPONENT,
   DEFAULT_RKS_FORMULA_MODE,
   normalizeRksFormulaExponent,
-  normalizeRksFormulaMode
+  normalizeRksFormulaMode,
+  normalizeStudentVisibility
 } from "./rks";
 
 type QueryClient = Sql | TransactionSql;
@@ -277,9 +284,11 @@ export async function createStudentAction(formData: FormData) {
     }
 
     try {
+      const queryCode = generateQueryCode();
+
       await sql`
-        INSERT INTO students (class_id, name, student_no, notes)
-        VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes})
+        INSERT INTO students (class_id, name, student_no, notes, query_code)
+        VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes}, ${queryCode})
       `;
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -309,9 +318,10 @@ export async function createStudentAction(formData: FormData) {
         continue;
       }
 
+      const queryCode = generateQueryCode();
       const rows = await tx<{ id: number }[]>`
-        INSERT INTO students (class_id, name, student_no, notes)
-        VALUES (${classId}, ${name}, '', '')
+        INSERT INTO students (class_id, name, student_no, notes, query_code)
+        VALUES (${classId}, ${name}, '', '', ${queryCode})
         ON CONFLICT (class_id, name) DO NOTHING
         RETURNING id
       `;
@@ -343,6 +353,8 @@ export async function updateStudentAction(formData: FormData) {
   const name = readText(formData, "name", 60);
   const studentNo = readText(formData, "studentNo", 30);
   const notes = readText(formData, "notes", 160);
+  const visibility = readStudentVisibility(formData);
+  const queryCode = readQueryCode(formData);
 
   if (!name) {
     redirect(
@@ -370,7 +382,9 @@ export async function updateStudentAction(formData: FormData) {
       UPDATE students
       SET name = ${name},
           student_no = ${studentNo},
-          notes = ${notes}
+          notes = ${notes},
+          visibility = ${visibility},
+          query_code = ${queryCode}
       WHERE id = ${studentId}
         AND class_id IN ${sql(roster.classIds)}
       RETURNING id
@@ -895,9 +909,11 @@ async function createStudentWithoutRedirect(formData: FormData) {
       throw new Error("这个班级里已有同名学生。");
     }
 
+    const queryCode = generateQueryCode();
+
     await sql`
-      INSERT INTO students (class_id, name, student_no, notes)
-      VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes})
+      INSERT INTO students (class_id, name, student_no, notes, query_code)
+      VALUES (${classId}, ${names[0]}, ${studentNo}, ${notes}, ${queryCode})
     `;
 
     await revalidateClassViews(classId);
@@ -914,9 +930,10 @@ async function createStudentWithoutRedirect(formData: FormData) {
         continue;
       }
 
+      const queryCode = generateQueryCode();
       const rows = await tx<{ id: number }[]>`
-        INSERT INTO students (class_id, name, student_no, notes)
-        VALUES (${classId}, ${name}, '', '')
+        INSERT INTO students (class_id, name, student_no, notes, query_code)
+        VALUES (${classId}, ${name}, '', '', ${queryCode})
         ON CONFLICT (class_id, name) DO NOTHING
         RETURNING id
       `;
@@ -943,6 +960,8 @@ async function updateStudentWithoutRedirect(formData: FormData) {
   const name = readText(formData, "name", 60);
   const studentNo = readText(formData, "studentNo", 30);
   const notes = readText(formData, "notes", 160);
+  const visibility = readStudentVisibility(formData);
+  const queryCode = readQueryCode(formData);
 
   if (!name) {
     throw new Error("学生姓名不能为空。");
@@ -965,7 +984,9 @@ async function updateStudentWithoutRedirect(formData: FormData) {
     UPDATE students
     SET name = ${name},
         student_no = ${studentNo},
-        notes = ${notes}
+        notes = ${notes},
+        visibility = ${visibility},
+        query_code = ${queryCode}
     WHERE id = ${studentId}
       AND class_id IN ${sql(roster.classIds)}
     RETURNING id
@@ -1219,6 +1240,7 @@ async function saveScoreChanges(
 async function revalidateClassViews(classId: number) {
   await refreshClassRksSnapshots(classId);
   revalidatePath("/");
+  revalidatePath("/student");
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/classes/${classId}`);
 }
@@ -1269,6 +1291,24 @@ function readNumber(formData: FormData, key: string, fallback: number) {
 
 function readCheckbox(formData: FormData, key: string) {
   return formData.get(key) === "on";
+}
+
+function readStudentVisibility(formData: FormData) {
+  return normalizeStudentVisibility(formData.get("visibility"));
+}
+
+function readQueryCode(formData: FormData) {
+  const queryCode = normalizeQueryCode(formData.get("queryCode"));
+
+  if (!queryCode) {
+    return generateQueryCode();
+  }
+
+  if (!isValidQueryCode(queryCode)) {
+    throw new Error(`查询码需要 ${getQueryCodeRuleText()}`);
+  }
+
+  return queryCode;
 }
 
 function readQueryResultStyle(formData: FormData) {

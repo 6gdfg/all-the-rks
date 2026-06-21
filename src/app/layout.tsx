@@ -36,6 +36,9 @@ export default function RootLayout({
               <span>All The RKS</span>
             </Link>
             <div className="topbar-actions">
+              <LinkButton variant="secondary" href="/student">
+                学生入口
+              </LinkButton>
               <LinkButton variant="secondary" href="/teacher/login">
                 老师登录
               </LinkButton>

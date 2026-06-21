@@ -75,12 +75,14 @@ async function schemaLooksReady(sql: Sql) {
     SELECT (
       to_regclass('public.teachers') IS NOT NULL
       AND to_regclass('public.sessions') IS NOT NULL
+      AND to_regclass('public.student_sessions') IS NOT NULL
       AND to_regclass('public.classes') IS NOT NULL
       AND to_regclass('public.class_settings') IS NOT NULL
       AND to_regclass('public.students') IS NOT NULL
       AND to_regclass('public.exams') IS NOT NULL
       AND to_regclass('public.scores') IS NOT NULL
       AND to_regclass('public.rks_snapshots') IS NOT NULL
+      AND to_regclass('public.students_query_code_idx') IS NOT NULL
       AND EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -141,13 +143,54 @@ async function schemaLooksReady(sql: Sql) {
         SELECT 1
         FROM information_schema.columns
         WHERE table_schema = 'public'
+          AND table_name = 'students'
+          AND column_name = 'visibility'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'students'
+          AND column_name = 'query_code'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
           AND table_name = 'rks_snapshots'
           AND column_name = 'snapshot'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'rks_snapshots'
+          AND column_name = 'visibility'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'rks_snapshots'
+          AND column_name = 'query_code'
       )
     ) AS ready
   `;
 
-  return rows[0]?.ready === true;
+  if (rows[0]?.ready !== true) {
+    return false;
+  }
+
+  const missingCodes = await sql<{ exists: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM students
+      WHERE query_code = ''
+      LIMIT 1
+    ) AS exists
+  `;
+
+  return missingCodes[0]?.exists !== true;
 }
 
 async function migrate() {
@@ -332,9 +375,73 @@ async function migrate() {
       name TEXT NOT NULL,
       student_no TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
+      visibility TEXT NOT NULL DEFAULT 'public',
+      query_code TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(class_id, name)
     )
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public'
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ADD COLUMN IF NOT EXISTS query_code TEXT NOT NULL DEFAULT ''
+  `;
+
+  await sql`
+    UPDATE students
+    SET visibility = 'public'
+    WHERE visibility IS NULL
+       OR visibility NOT IN ('public', 'code_only')
+  `;
+
+  await sql`
+    UPDATE students
+    SET query_code = ''
+    WHERE query_code IS NULL
+  `;
+
+  await sql`
+    UPDATE students
+    SET query_code = UPPER(
+      SUBSTRING(MD5(RANDOM()::TEXT || clock_timestamp()::TEXT || id::TEXT), 1, 8)
+    )
+    WHERE query_code = ''
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ALTER COLUMN visibility SET DEFAULT 'public'
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ALTER COLUMN visibility SET NOT NULL
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ALTER COLUMN query_code SET DEFAULT ''
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ALTER COLUMN query_code SET NOT NULL
+  `;
+
+  await sql`
+    ALTER TABLE students
+    DROP CONSTRAINT IF EXISTS students_visibility_check
+  `;
+
+  await sql`
+    ALTER TABLE students
+    ADD CONSTRAINT students_visibility_check
+    CHECK (visibility IN ('public', 'code_only'))
   `;
 
   await sql`
@@ -350,6 +457,31 @@ async function migrate() {
   await sql`
     CREATE INDEX IF NOT EXISTS students_class_name_idx
       ON students(class_id, LOWER(name))
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS students_name_query_code_idx
+      ON students(LOWER(name), query_code)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS students_query_code_idx
+      ON students(query_code)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS student_sessions (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS student_sessions_student_idx
+      ON student_sessions(student_id)
   `;
 
   await sql`
@@ -433,6 +565,8 @@ async function migrate() {
       student_name TEXT NOT NULL,
       student_no TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
+      visibility TEXT NOT NULL DEFAULT 'public',
+      query_code TEXT NOT NULL DEFAULT '',
       rks NUMERIC(10, 6) NOT NULL DEFAULT 0,
       rank INTEGER NOT NULL DEFAULT 0,
       result_count INTEGER NOT NULL DEFAULT 0,
@@ -443,6 +577,72 @@ async function migrate() {
   `;
 
   await sql`
+    ALTER TABLE rks_snapshots
+    ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public'
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ADD COLUMN IF NOT EXISTS query_code TEXT NOT NULL DEFAULT ''
+  `;
+
+  await sql`
+    UPDATE rks_snapshots
+    SET visibility = 'public'
+    WHERE visibility IS NULL
+       OR visibility NOT IN ('public', 'code_only')
+  `;
+
+  await sql`
+    UPDATE rks_snapshots
+    SET query_code = ''
+    WHERE query_code IS NULL
+  `;
+
+  await sql`
+    UPDATE rks_snapshots
+    SET query_code = students.query_code,
+        visibility = students.visibility
+    FROM students
+    WHERE rks_snapshots.student_id = students.id
+      AND (
+        rks_snapshots.query_code = ''
+        OR rks_snapshots.visibility <> students.visibility
+      )
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ALTER COLUMN visibility SET DEFAULT 'public'
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ALTER COLUMN visibility SET NOT NULL
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ALTER COLUMN query_code SET DEFAULT ''
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ALTER COLUMN query_code SET NOT NULL
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    DROP CONSTRAINT IF EXISTS rks_snapshots_visibility_check
+  `;
+
+  await sql`
+    ALTER TABLE rks_snapshots
+    ADD CONSTRAINT rks_snapshots_visibility_check
+    CHECK (visibility IN ('public', 'code_only'))
+  `;
+
+  await sql`
     CREATE INDEX IF NOT EXISTS rks_snapshots_class_rank_idx
       ON rks_snapshots(class_id, rank, rks DESC)
   `;
@@ -450,6 +650,11 @@ async function migrate() {
   await sql`
     CREATE INDEX IF NOT EXISTS rks_snapshots_class_name_idx
       ON rks_snapshots(class_id, LOWER(student_name))
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS rks_snapshots_public_name_idx
+      ON rks_snapshots(visibility, LOWER(student_name))
   `;
 
   await sql`

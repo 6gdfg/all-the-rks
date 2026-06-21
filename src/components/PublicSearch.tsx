@@ -307,8 +307,8 @@ export function PublicSearch({
                     board.students.map((student) => (
                       <div className="leaderboard-row" key={student.studentId}>
                         <span className="rank-pill">{student.rank}</span>
-                        <span>{student.name}</span>
-                        <strong>{formatRks(student.rks)}</strong>
+                        <span>{student.isMasked ? "？？？" : student.name}</span>
+                        <strong>{student.isMasked ? "？？" : formatRks(student.rks)}</strong>
                       </div>
                     ))
                   ) : (
