@@ -1,6 +1,11 @@
-# 学科实力 RKS 系统
+# All The RKS
 
 一个可部署到 Vercel 或自托管服务器的 Next.js 应用，使用 PostgreSQL 存储老师、班级、学生、考试、成绩和展示设置。
+
+## 画廊
+![alt text](image.png)
+![alt text](image-1.png)
+![alt text](image-2.png)
 
 ## 本地运行
 
