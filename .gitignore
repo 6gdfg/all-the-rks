@@ -4,8 +4,12 @@ out
 dist
 .env
 .env*.local
+.dev.vars
+.dev.vars.local
 *.log
 *.tsbuildinfo
 cmdysj.ttf
 vercel
 .vercel
+.open-next
+.wrangler

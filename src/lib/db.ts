@@ -7,8 +7,28 @@ declare global {
   var rksSchemaReady: Promise<void> | undefined;
 }
 
+type HyperdriveBinding = {
+  connectionString?: string;
+};
+
+type CloudflareContextLike = {
+  env?: {
+    HYPERDRIVE?: HyperdriveBinding;
+  };
+};
+
+function getHyperdriveConnectionString() {
+  const context = Reflect.get(
+    globalThis,
+    Symbol.for("__cloudflare-context__")
+  ) as CloudflareContextLike | undefined;
+
+  return context?.env?.HYPERDRIVE?.connectionString || "";
+}
+
 export function getDatabaseUrl() {
   return (
+    getHyperdriveConnectionString() ||
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
